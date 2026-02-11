@@ -103,8 +103,9 @@ Uses existing ultrasonic sensor for level detection with a normally-closed solen
 ### 5. Standalone Operation
 
 The controller operates independently when Home Assistant is unavailable:
-- Local pH control: Doses pH up/down based on setpoints stored on device
-- Local EC control: Doses nutrients when EC drops below threshold
+- Local pH control: Once daily at 10:00 AM (avoids temperature-induced pH fluctuations)
+  - Doses pH Down when above target (pH Up pump is optional)
+- Local EC control: Doses nutrients when EC drops below threshold (every 10 min)
 - Safety interlocks: Float switch protection always active
 - ATO: Requires HA for user confirmation (manual override via physical button possible)
 - Data logging: Buffers readings until HA reconnects
@@ -120,7 +121,7 @@ The controller operates independently when Home Assistant is unavailable:
 | 4 | Ultrasonic TRIG | Water level |
 | 5 | Ultrasonic ECHO | Water level |
 | 6 | Main Pump | 12V pump control |
-| 7 | Dosing 1 (pH Up) | 12V peristaltic |
+| 7 | Dosing 1 (pH Up) | 12V peristaltic (optional) |
 | 8 | (DevKit RGB LED) | Reserved - do not use |
 | 9 | Dosing 3 (Nutrient A) | 12V peristaltic |
 | 10 | Dosing 4 (Nutrient B) | 12V peristaltic |

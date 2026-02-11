@@ -49,12 +49,12 @@ Note: Using DevKit instead of bare module - includes USB-C, antenna, and boot/re
 |-----|------|-------------|--------|-------|
 | 1 | Atlas Scientific EZO-pH | pH circuit, I2C | Atlas Scientific | $42 |
 | 1 | Atlas Scientific EZO-EC | Conductivity circuit, I2C | Atlas Scientific | $42 |
-| 1 | Atlas Scientific EZO-DO | Dissolved oxygen circuit, I2C | Atlas Scientific | $48 |
+| 1 | Atlas Scientific EZO-DO | Dissolved oxygen circuit, I2C (optional) | Atlas Scientific | $48 |
 | 1 | Atlas pH Probe | Lab grade, BNC, ±0.1 pH | Atlas Scientific | $65 |
 | 1 | Atlas EC Probe K=1.0 | Conductivity probe, ±2% | Atlas Scientific | $45 |
-| 1 | Atlas DO Probe | Galvanic DO probe | Atlas Scientific | $108 |
+| 1 | Atlas DO Probe | Galvanic DO probe (optional) | Atlas Scientific | $108 |
 
-**Water Quality Subtotal: ~$350**
+**Water Quality Subtotal: ~$350** (or ~$195 without optional DO)
 
 Note: Atlas Scientific probes include calibration data and have better longevity than budget alternatives.
 
@@ -88,7 +88,10 @@ Recommended models:
 
 | Qty | Part | Description | Source | Price |
 |-----|------|-------------|--------|-------|
-| 4 | Peristaltic pump 12V | ~100mL/min, 3mm tubing | AliExpress | $12 ea |
+| 3-4 | Peristaltic pump 12V | ~100mL/min, 3mm tubing | AliExpress | $12 ea |
+
+Required: pH Down, Nutrient A, Nutrient B (3 pumps)
+Optional: pH Up (if your system tends toward acidic - most don't need this)
 
 Recommended:
 - Kamoer KFS (quality, $20 ea)

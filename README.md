@@ -4,9 +4,9 @@ A fully autonomous, data-rich hydroponics automation system with precision contr
 
 ## Features
 
-- **Full Water Quality Monitoring**: pH, EC/TDS, dissolved oxygen, temperature
+- **Full Water Quality Monitoring**: pH, EC/TDS, dissolved oxygen (optional), temperature
 - **Environmental Monitoring**: Air temp/humidity, light intensity (lux/PPFD), VPD
-- **Automatic Dosing**: pH up/down, two-part nutrients (A/B)
+- **Automatic Dosing**: pH up (optional)/down, two-part nutrients (A/B)
 - **Automatic Top-Off (ATO)**: Ultrasonic level sensing with user-approved filling
 - **Standalone Operation**: Local automation continues if Home Assistant is offline
 - **Safety Features**: Float switch interlocks, dosing limits, timeout protection
@@ -47,7 +47,7 @@ OPNhydroponics/
 |--------|-----------|---------|
 | Atlas EZO-pH | I2C | Water pH monitoring |
 | Atlas EZO-EC | I2C | Nutrient concentration (EC/TDS) |
-| Atlas EZO-DO | I2C | Dissolved oxygen |
+| Atlas EZO-DO | I2C | Dissolved oxygen (optional) |
 | DS18B20 | 1-Wire | Water temperature |
 | HC-SR04 | GPIO | Water level (ultrasonic) |
 | BME280 | I2C | Air temp, humidity, pressure |
@@ -59,7 +59,7 @@ OPNhydroponics/
 | Actuator | Voltage | Control |
 |----------|---------|---------|
 | Main circulation pump | 12V DC | GPIO → MOSFET |
-| pH Up dosing pump | 12V DC | GPIO → MOSFET |
+| pH Up dosing pump (optional) | 12V DC | GPIO → MOSFET |
 | pH Down dosing pump | 12V DC | GPIO → MOSFET |
 | Nutrient A dosing pump | 12V DC | GPIO → MOSFET |
 | Nutrient B dosing pump | 12V DC | GPIO → MOSFET |
@@ -99,16 +99,17 @@ esphome run hydroponics-controller.yaml
 
 The controller runs standalone pH and EC control without Home Assistant:
 
-**pH Control (every 5 minutes):**
-- If pH < (target - tolerance): dose pH Up
+**pH Control (once daily at 10:00 AM):**
+- Runs once per day to avoid temperature-induced pH fluctuations
 - If pH > (target + tolerance): dose pH Down
-- Respects lockout timer (default 5 min between doses)
+- If pH < (target - tolerance): logs warning (pH Up pump optional)
 - Respects daily limits (default 50 mL/day)
 
 **EC Control (every 10 minutes):**
 - If EC < (target - tolerance): dose Nutrient A, then B
 - Only doses if pH is within range (5.5-6.5)
-- Respects same lockout and daily limits
+- Respects lockout timer (default 5 min between doses)
+- Respects daily limits (default 100 mL/day)
 
 **ATO (Automatic Top-Off):**
 - Monitors water level via ultrasonic sensor

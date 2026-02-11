@@ -75,10 +75,10 @@ Component Selection:
 12V_PROTECTED ────┬───────────────────────► 12V_RAIL
                   │
               ┌───┴───┐
-              │       │ D (Source tied to input)
+              │       │ S (Source tied to input)
        ┌──────┤ Q1    │──────────────────────────────────► 12V_SAFE
        │      │ (P-FET)│
-       │      └───┬───┘ S
+       │      └───┬───┘ D
        │          │G
        R1      ┌──┴──┐
        10k     │ R2  │ 100k
@@ -353,7 +353,7 @@ D1: SS34 (3A Schottky flyback diode)
 Same circuit as main pump, all on 12V rail.
 Use separate MOSFET for each dosing pump.
 
-GPIO7  ──► Pump pH Up
+GPIO7  ──► Pump pH Up (optional)
 GPIO21 ──► Pump pH Down
 GPIO9  ──► Pump Nutrient A
 GPIO10 ──► Pump Nutrient B

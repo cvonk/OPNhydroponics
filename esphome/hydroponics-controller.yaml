@@ -15,7 +15,7 @@ substitutions:
   tank_width: "40"
 
   # Dosing pump flow rates (mL per second)
-  pump_ph_up_rate: "1.5"
+  # pump_ph_up_rate: "1.5"  # OPTIONAL: Uncomment if using pH Up pump
   pump_ph_down_rate: "1.5"
   pump_nutrient_a_rate: "2.0"
   pump_nutrient_b_rate: "2.0"
@@ -62,6 +62,7 @@ api:
     key: !secret api_encryption_key
   services:
     # Manual dosing service
+    # Pump IDs: 1=pH Up (optional), 2=pH Down, 3=Nutrient A, 4=Nutrient B
     - service: dose_pump
       variables:
         pump: int
@@ -69,7 +70,7 @@ api:
       then:
         - lambda: |-
             switch(pump) {
-              case 1: id(pump_ph_up).turn_on(); break;
+              // case 1: id(pump_ph_up).turn_on(); break;  // OPTIONAL: Uncomment if using pH Up pump
               case 2: id(pump_ph_down).turn_on(); break;
               case 3: id(pump_nutrient_a).turn_on(); break;
               case 4: id(pump_nutrient_b).turn_on(); break;
@@ -77,7 +78,7 @@ api:
         - delay: !lambda 'return duration_ms;'
         - lambda: |-
             switch(pump) {
-              case 1: id(pump_ph_up).turn_off(); break;
+              // case 1: id(pump_ph_up).turn_off(); break;  // OPTIONAL: Uncomment if using pH Up pump
               case 2: id(pump_ph_down).turn_off(); break;
               case 3: id(pump_nutrient_a).turn_off(); break;
               case 4: id(pump_nutrient_b).turn_off(); break;
@@ -140,10 +141,52 @@ time:
         hours: 0
         then:
           - lambda: |-
-              id(daily_ph_up_dosed) = 0;
+              // id(daily_ph_up_dosed) = 0;  // Uncomment if using pH Up pump
               id(daily_ph_down_dosed) = 0;
               id(daily_nutrient_dosed) = 0;
               ESP_LOGI("dosing", "Daily dose counters reset");
+
+      # Local pH Control - once daily at 10:00 AM
+      # Using scheduled time instead of interval to avoid temperature fluctuation effects
+      - seconds: 0
+        minutes: 0
+        hours: 10
+        then:
+          - lambda: |-
+              if (!id(local_ph_control_enabled)) {
+                ESP_LOGD("ph_control", "Local pH control disabled");
+                return;
+              }
+
+              float ph = id(ezo_ph).state;
+              float target = id(ph_target).state;
+              float tolerance = id(ph_tolerance).state;
+
+              ESP_LOGI("ph_control", "Daily pH check at 10:00 AM - pH: %.2f, Target: %.2f", ph, target);
+
+              // Check if pH is out of range
+              if (ph < (target - tolerance)) {
+                // pH too low - need pH Up (optional - uncomment if using pH Up pump)
+                // float daily_limit = id(daily_ph_limit).state;
+                // ESP_LOGI("ph_control", "pH %.2f below target %.2f - dosing pH Up", ph, target);
+                // id(dose_ph_up_action).execute();
+                ESP_LOGW("ph_control", "pH %.2f below target - pH Up pump not installed", ph);
+
+              } else if (ph > (target + tolerance)) {
+                // pH too high - need pH Down
+                float daily_dosed = id(daily_ph_down_dosed);
+                float daily_limit = id(daily_ph_limit).state;
+
+                if (daily_dosed >= daily_limit) {
+                  ESP_LOGW("ph_control", "Daily pH Down limit reached: %.1f mL", daily_dosed);
+                  return;
+                }
+
+                ESP_LOGI("ph_control", "pH %.2f above target %.2f - dosing pH Down", ph, target);
+                id(dose_ph_down_action).execute();
+              } else {
+                ESP_LOGI("ph_control", "pH %.2f within tolerance of target %.2f - no action needed", ph, target);
+              }
 
 # =============================================================================
 # GLOBALS (State Variables)
@@ -151,6 +194,8 @@ time:
 
 globals:
   # Dosing lockout timestamps (millis)
+  # Note: pH control now runs once daily at 10:00 AM, so lockout is less critical
+  # but kept for EC control and manual dosing
   - id: last_ph_dose_time
     type: unsigned long
     restore_value: no
@@ -162,10 +207,11 @@ globals:
     initial_value: '0'
 
   # Daily dose tracking (mL)
-  - id: daily_ph_up_dosed
-    type: float
-    restore_value: no
-    initial_value: '0'
+  # OPTIONAL: Uncomment if using pH Up pump
+  # - id: daily_ph_up_dosed
+  #   type: float
+  #   restore_value: no
+  #   initial_value: '0'
 
   - id: daily_ph_down_dosed
     type: float
@@ -262,17 +308,18 @@ sensor:
     update_interval: 5s
 
   # --- Dissolved Oxygen (Atlas Scientific EZO-DO via I2C) ---
-  - platform: ezo
-    id: ezo_do
-    address: 0x61
-    name: "Dissolved Oxygen"
-    unit_of_measurement: "mg/L"
-    accuracy_decimals: 2
-    update_interval: 10s
-    filters:
-      - sliding_window_moving_average:
-          window_size: 3
-          send_every: 1
+  # OPTIONAL: Uncomment if using DO probe
+  # - platform: ezo
+  #   id: ezo_do
+  #   address: 0x61
+  #   name: "Dissolved Oxygen"
+  #   unit_of_measurement: "mg/L"
+  #   accuracy_decimals: 2
+  #   update_interval: 10s
+  #   filters:
+  #     - sliding_window_moving_average:
+  #         window_size: 3
+  #         send_every: 1
 
   # --- Water Level (Ultrasonic HC-SR04) ---
   - platform: ultrasonic
@@ -383,13 +430,14 @@ sensor:
     update_interval: 60s
 
   # --- Daily pH Up Dosed ---
-  - platform: template
-    name: "Daily pH Up Dosed"
-    id: daily_ph_up_sensor
-    unit_of_measurement: "mL"
-    accuracy_decimals: 1
-    lambda: 'return id(daily_ph_up_dosed);'
-    update_interval: 30s
+  # OPTIONAL: Uncomment if using pH Up pump
+  # - platform: template
+  #   name: "Daily pH Up Dosed"
+  #   id: daily_ph_up_sensor
+  #   unit_of_measurement: "mL"
+  #   accuracy_decimals: 1
+  #   lambda: 'return id(daily_ph_up_dosed);'
+  #   update_interval: 30s
 
   # --- Daily pH Down Dosed ---
   - platform: template
@@ -488,13 +536,14 @@ switch:
           - logger.log: "Main pump blocked - low water level!"
 
   # --- Dosing Pump: pH Up ---
-  - platform: gpio
-    pin: GPIO7
-    name: "Pump pH Up"
-    id: pump_ph_up
-    icon: "mdi:arrow-up-bold"
-    restore_mode: ALWAYS_OFF
-    internal: false
+  # OPTIONAL: Uncomment if using pH Up pump (GPIO7)
+  # - platform: gpio
+  #   pin: GPIO7
+  #   name: "Pump pH Up"
+  #   id: pump_ph_up
+  #   icon: "mdi:arrow-up-bold"
+  #   restore_mode: ALWAYS_OFF
+  #   internal: false
 
   # --- Dosing Pump: pH Down ---
   - platform: gpio
@@ -857,57 +906,8 @@ interval:
             ESP_LOGD("temp_comp", "Water temp: %.1f°C", id(water_temp).state);
           }
 
-  # --- Local pH Control (every 5 minutes) ---
-  - interval: 300s
-    then:
-      - lambda: |-
-          if (!id(local_ph_control_enabled)) {
-            ESP_LOGD("ph_control", "Local pH control disabled");
-            return;
-          }
-
-          float ph = id(ezo_ph).state;
-          float target = id(ph_target).state;
-          float tolerance = id(ph_tolerance).state;
-          unsigned long now = millis();
-          unsigned long lockout_ms = id(dose_lockout_minutes).state * 60 * 1000;
-
-          // Check lockout
-          if ((now - id(last_ph_dose_time)) < lockout_ms) {
-            ESP_LOGD("ph_control", "pH dosing locked out for %lu more ms",
-                     lockout_ms - (now - id(last_ph_dose_time)));
-            return;
-          }
-
-          // Check if pH is out of range
-          if (ph < (target - tolerance)) {
-            // pH too low - need pH Up
-            float daily_dosed = id(daily_ph_up_dosed);
-            float daily_limit = id(daily_ph_limit).state;
-
-            if (daily_dosed >= daily_limit) {
-              ESP_LOGW("ph_control", "Daily pH Up limit reached: %.1f mL", daily_dosed);
-              return;
-            }
-
-            ESP_LOGI("ph_control", "pH %.2f below target %.2f - dosing pH Up", ph, target);
-            id(last_ph_dose_time) = now;
-            id(dose_ph_up_action).execute();
-
-          } else if (ph > (target + tolerance)) {
-            // pH too high - need pH Down
-            float daily_dosed = id(daily_ph_down_dosed);
-            float daily_limit = id(daily_ph_limit).state;
-
-            if (daily_dosed >= daily_limit) {
-              ESP_LOGW("ph_control", "Daily pH Down limit reached: %.1f mL", daily_dosed);
-              return;
-            }
-
-            ESP_LOGI("ph_control", "pH %.2f above target %.2f - dosing pH Down", ph, target);
-            id(last_ph_dose_time) = now;
-            id(dose_ph_down_action).execute();
-          }
+  # NOTE: pH control moved to scheduled time (10:00 AM daily) in the time: section above
+  # This avoids issues with temperature fluctuations affecting pH readings throughout the day
 
   # --- Local EC Control (every 10 minutes) ---
   - interval: 600s
@@ -1013,15 +1013,16 @@ interval:
 
 script:
   # --- Dose pH Up Script ---
-  - id: dose_ph_up_action
-    then:
-      - switch.turn_on: pump_ph_up
-      - delay: !lambda 'return (id(dose_amount).state / ${pump_ph_up_rate}) * 1000;'
-      - switch.turn_off: pump_ph_up
-      - lambda: 'id(daily_ph_up_dosed) += id(dose_amount).state;'
-      - logger.log:
-          format: "Dosed %.1f mL pH Up (daily total: %.1f mL)"
-          args: ['id(dose_amount).state', 'id(daily_ph_up_dosed)']
+  # OPTIONAL: Uncomment if using pH Up pump
+  # - id: dose_ph_up_action
+  #   then:
+  #     - switch.turn_on: pump_ph_up
+  #     - delay: !lambda 'return (id(dose_amount).state / ${pump_ph_up_rate}) * 1000;'
+  #     - switch.turn_off: pump_ph_up
+  #     - lambda: 'id(daily_ph_up_dosed) += id(dose_amount).state;'
+  #     - logger.log:
+  #         format: "Dosed %.1f mL pH Up (daily total: %.1f mL)"
+  #         args: ['id(dose_amount).state', 'id(daily_ph_up_dosed)']
 
   # --- Dose pH Down Script ---
   - id: dose_ph_down_action
@@ -1069,11 +1070,12 @@ script:
 
 button:
   # --- Dose pH Up ---
-  - platform: template
-    name: "Dose pH Up"
-    icon: "mdi:plus-circle"
-    on_press:
-      - script.execute: dose_ph_up_action
+  # OPTIONAL: Uncomment if using pH Up pump
+  # - platform: template
+  #   name: "Dose pH Up"
+  #   icon: "mdi:plus-circle"
+  #   on_press:
+  #     - script.execute: dose_ph_up_action
 
   # --- Dose pH Down ---
   - platform: template
@@ -1132,7 +1134,7 @@ button:
     icon: "mdi:counter"
     on_press:
       - lambda: |-
-          id(daily_ph_up_dosed) = 0;
+          // id(daily_ph_up_dosed) = 0;  // Uncomment if using pH Up pump
           id(daily_ph_down_dosed) = 0;
           id(daily_nutrient_dosed) = 0;
           ESP_LOGI("dosing", "Daily dose counters reset manually");
