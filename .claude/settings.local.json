@@ -4,7 +4,8 @@
       "Bash(python generate_schematic.py:*)",
       "Bash(python:*)",
       "WebFetch(domain:www.alldatasheet.com)",
-      "WebFetch(domain:www.ti.com)"
+      "WebFetch(domain:www.ti.com)",
+      "WebFetch(domain:www.analog.com)"
     ]
   }
 }

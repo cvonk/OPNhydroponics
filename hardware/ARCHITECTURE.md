@@ -239,11 +239,11 @@ The controller operates independently when Home Assistant is unavailable:
 | Dosing Pumps | 4×2-pin pluggable screw terminal (3.5mm) |
 | ATO Solenoid | 2-pin pluggable screw terminal (3.5mm) |
 | pH/EC/DO Probes | BNC female (panel mount) - use included SMA-to-BNC adapters |
-| I2C Sensors | 4-pin JST-PH (Qwiic compatible) |
-| 1-Wire | 3-pin JST-PH |
+| I2C Sensors | 4-pin Phoenix Contact 1803280/1803581 |
+| 1-Wire | 3-pin JST-XH |
 | Float Switches | 2-pin JST-XH |
 | Ultrasonic | 4-pin JST-XH |
-| OLED Display | 4-pin header or JST-PH |
+| OLED Display | 4-pin header or Phoenix Contact |
 | Programming | USB-C |
 
 ### Protection Features
