@@ -1,14 +1,26 @@
 # Atlas Scientific EZO Isolated Circuit Design
 
-> **✅ PROJECT DECISION:** OPNhydro will use the **Analog Devices ADM3260** for EZO sensor isolation.
-> - **ADM3260** - Hot-swappable dual I2C isolator with integrated DC-DC converter
-> - **150mW isolated power** - Single chip solution
-> - **Bidirectional I2C** - Proper I2C isolation (vs ISOW7741 unidirectional channels)
-> - **Reference Design:** [EVAL-ADM3260MEBZ User Guide (UG-724)](https://www.analog.com/media/en/technical-documentation/user-guides/EVAL-ADM3260MEBZ_UG-724.pdf)
+> **✅ PROJECT DECISION:** OPNhydro will use **Option B: ADM3260** for EZO sensor isolation.
 >
-> **⚠️ DESIGN CHANGE NOTE:** Previously considered ISOW7741/ISOW7841, but these use unidirectional
-> digital isolator channels (3 forward + 1 reverse) which are not ideal for bidirectional I2C.
-> ADM3260 provides proper bidirectional I2C isolation with integrated power in a single chip.
+> **Selected: Option B - Analog Devices ADM3260** ✅ (Single-Chip Solution)
+> - Integrated I2C isolator + DC-DC converter in one chip
+> - 150mW isolated power, 1 MHz I2C, 2500 VRMS isolation
+> - Requires 2 ferrite beads (BLM15HD182SN1) for optimal EMC
+> - Reference: [EVAL-ADM3260MEBZ User Guide (UG-724)](https://www.analog.com/media/en/technical-documentation/user-guides/EVAL-ADM3260MEBZ_UG-724.pdf)
+> - **Selected for:** Smallest PCB footprint, single-chip simplicity
+> - **Total System Cost:** ~$204-205 (excluding probes)
+>
+> **Alternative: Option C - Recom RM-3.33.3S + TI ISO1640BDR** (Two-Chip Solution)
+> - Separate DC-DC (RM-3.33.3S) + I2C isolator (ISO1640BDR)
+> - 76mA isolated power, 1.7 MHz I2C, 3000 VRMS isolation
+> - Standard components only (no specialized ferrite beads)
+> - **Pros:** Higher I2C speed, higher isolation, standard components
+> - **Cons:** Two chips, larger footprint (+$6 more expensive)
+> - Documented as alternative option in this guide
+>
+> **⚠️ DESIGN NOTE:** Previously considered ISOW7741/ISOW7841, but these use unidirectional
+> digital isolator channels (3 forward + 1 reverse) which are not suitable for bidirectional I2C.
+> The selected ADM3260 provides proper bidirectional I2C isolation.
 
 This document describes the galvanic isolation circuit for connecting Atlas Scientific EZO sensor boards (pH, EC, DO) to the ESP32-C6 via I2C.
 
@@ -623,20 +635,22 @@ B0303S-1WR2 Specifications:
 
 ### Side-by-Side Comparison
 
-| Feature | **ADM3260** ✅ | **B0303S + ISO1540** | **ISOW7841** ⚠️ |
-|---------|----------------|---------------------|----------------|
-| **Solution Type** | All-in-One | I2C + Power | All-in-One |
+| Feature | **Option B: ADM3260** ✅ | **Option C: RM-3.33.3S + ISO1640BDR** | **ISOW7841** ⚠️ |
+|---------|-------------------------|--------------------------------------|----------------|
+| **Status** | **SELECTED** ✅ | Alternative | Not Recommended |
+| **Solution Type** | All-in-One | I2C + Power (2-chip) | All-in-One |
 | **I2C Type** | **Bidirectional** | **Bidirectional** | **Unidirectional** |
 | **Chip Count** | 1 | 2 | 1 |
-| **Isolated Power** | 150mW @ 3.3V | 300mA @ 3.3V | 150mA @ 3.3V |
-| **I2C Speed** | Up to 1MHz | 1MHz max | 1MHz max |
-| **Isolation Voltage** | 2500Vrms | 1000V + 2500Vrms | 5000Vrms |
-| **Package** | 20-lead SSOP | SIP-7 + SOIC-8 | SOIC-16W |
-| **Built-in Pullups** | ADM3260E option | ISO1541 option | Yes |
-| **Hot Swap** | Yes | Yes | Yes |
-| **Cost per Circuit** | ~$5-6 | ~$8-12 | ~$9-11 |
-| **PCB Footprint** | Small | Medium | Smallest |
-| **Design Complexity** | Simplest | Moderate | Moderate |
+| **Isolated Power** | 150mW @ 3.3V | 76mA @ 3.3V | 150mA @ 3.3V |
+| **I2C Speed** | Up to 1MHz | **Up to 1.7MHz** | 1MHz max |
+| **Isolation Voltage** | 2500Vrms | **3000Vrms** | 5000Vrms |
+| **Package** | 20-lead SSOP | SIP-4 + SOIC-8 | SOIC-16W |
+| **Built-in Pullups** | ADM3260E option | External required | Yes |
+| **Hot Swap** | Yes | Yes (ISO1640) | Yes |
+| **Cost per Circuit** | **~$5.75** | ~$7.75 | ~$9-11 |
+| **PCB Footprint** | **Smallest** | Medium | Smallest |
+| **BOM Complexity** | Ferrite beads needed | **Standard parts only** | Unidirectional I2C |
+| **Selection Reason** | **Smallest footprint** | Higher speed/isolation | Not for I2C |
 | **Temperature Range** | -40 to +125°C | -40 to +125°C | -40 to +125°C |
 | **Proven Track Record** | Recent design | Well established | Very established |
 
@@ -1239,6 +1253,104 @@ Use ADM3260 when:
 ✅ Want hot-swap capability
 ✅ Building commercial/industrial products
 ```
+
+---
+
+### Option B: Recom RM-3.33.3S + TI ISO1640BDR (Two-Chip Solution)
+
+```
+Two Chips: Isolated DC-DC + Bidirectional I2C Isolator
+
+Reference: Recom RM-3.33.3S Datasheet + ISO1640 Datasheet
+           https://www.ti.com/lit/ds/symlink/iso1640.pdf
+
+ESP32 Side (Non-Isolated):          EZO Side (Isolated):
+──────────────────────────          ────────────────────
+
+    3.3V                                 3.3V_ISO
+     │                                      │
+     │    ┌──────────────┐                  │
+     ├───►│1 VIN   VOUT 4├──────────────────┼──► 3.3V_ISO (76mA max)
+     │    │              │                  │
+     │    │  RM-3.33.3S  │                  ├────┬────
+     │    │   (SIP-4)    │                  │    │
+     │    │              │                10µF  0.1µF  ◄── Output caps
+ GND─┼───►│2 GND    GND 3├──────────┐       │    │       (typical)
+     │    └──────────────┘          │      GND  GND
+     │                               │       │
+     ├────┬────                      │       │
+     │    │                          │       │
+   10µF  0.1µF  ◄── Input caps       │       │
+     │    │       (typical)          │       │
+    GND  GND                         │       │
+     │                               │       │
+     │    ┌──────────────────────┐   │       │
+     ├───►│1  VCC1        VCC2  8├───┼───────┤
+     │    │                      │   │       │
+ SDA─┼───►│2  SDA1        SDA2  7├───┼───────┼───► SDA_ISO ──► EZO SDA
+     │    │                      │   │       │
+ SCL─┼───►│4  SCL1        SCL2  5├───┼───────┼───► SCL_ISO ──► EZO SCL
+     │    │                      │   │       │
+     │    │   ISO1640BDR         │   │       │
+     │    │   (SOIC-8)           │   │       │
+ GND─┴───►│3  GND1        GND2  6├───┴───────┴───► GND_ISO ──► EZO GND
+          │                      │
+          └──────────────────────┘
+
+I2C Pull-up Resistors (4.7kΩ):
+     3.3V                            3.3V_ISO
+      │                                 │
+      ├────┬────                       ├────┬────
+      │    │                           │    │
+    4.7k 4.7k                         4.7k 4.7k
+      │    │                           │    │
+     SDA  SCL                        SDA_ISO SCL_ISO
+
+Component Values:
+- RM-3.33.3S input: 10µF + 0.1µF ceramic X7R (typical for SIP DC-DC)
+- RM-3.33.3S output: 10µF + 0.1µF ceramic X7R (typical for SIP DC-DC)
+- ISO1640 VCC1, VCC2: 0.1µF ceramic X7R (per datasheet)
+- Pull-ups: 4× 4.7kΩ resistors (both sides)
+
+Key Features:
+✅ Proper bidirectional I2C isolation (not unidirectional channels)
+✅ Higher I2C speed: Up to 1.7 MHz (vs 1 MHz for ADM3260)
+✅ Higher isolation: 3000 VRMS (vs 2500 VRMS for ADM3260)
+✅ Enhanced EMC performance
+✅ Hot-swap capable (ISO1640)
+✅ Standard components only - no specialized ferrite beads
+✅ Temperature: -40°C to +85°C
+
+Advantages:
+✅ Simpler BOM - all standard capacitors and resistors
+✅ No specialized ferrite beads required
+✅ Higher I2C speed and isolation ratings
+✅ Enhanced EMC (ISO1640 vs ISO1540)
+✅ Proven industrial designs (both chips widely used)
+✅ Easy to source - common components
+
+Disadvantages:
+⚠️ Two chips instead of one
+⚠️ Lower power output (76mA vs 150mA) - but sufficient for EZO (35mA)
+⚠️ Slightly larger PCB footprint
+⚠️ More soldering/assembly
+
+Power Output:
+- RM-3.33.3S: 3.3V @ 76mA (0.25W)
+- EZO load: ~115mW (35mA @ 3.3V)
+- Margin: 76mA - 35mA = 41mA (54% headroom)
+- Sufficient for single EZO per isolator
+
+Use RM-3.33.3S + ISO1640BDR when:
+✅ Want simpler BOM with standard components only
+✅ Need higher I2C speed (>1 MHz)
+✅ Need higher isolation voltage (3000 VRMS)
+✅ Prefer to avoid specialized ferrite beads
+✅ Assembly simplicity is priority
+✅ Building DIY/hobby projects with easy-to-source parts
+```
+
+---
 
 ### ISOW7741/ISOW7841 (⚠️ NOT RECOMMENDED for I2C)
 
@@ -2113,7 +2225,7 @@ Recommended Fab Houses:
 | 4 | R1-R4 | 4.7kΩ | Resistor 1% | 0805 | $0.05 ea |
 | **Total per circuit** | | | **(without probe)** | | **$55-65** |
 
-#### Option B: Using ADM3260 (Integrated I2C + DC-DC) ✅ OPNhydro Choice
+#### Option B: Using ADM3260 (Single-Chip: Integrated I2C + DC-DC)
 
 Single-chip solution with proper bidirectional I2C and integrated 150mW DC-DC converter.
 
@@ -2148,7 +2260,42 @@ Notes:
 
 Reference Design: https://www.analog.com/media/en/technical-documentation/user-guides/EVAL-ADM3260MEBZ_UG-724.pdf
 
-#### Option C: Using ISOW77xx ⚠️ NOT RECOMMENDED for I2C
+#### Option C: Using Recom RM-3.33.3S + ISO1640BDR (Two-Chip Solution)
+
+Two-chip solution: separate DC-DC converter + I2C isolator with standard components only.
+
+| Qty | Reference | Part Number | Description | Package | Cost (USD) |
+|-----|-----------|-------------|-------------|---------|------------|
+| 1 | U1 | RM-3.33.3S | Recom Isolated DC-DC 3.3V→3.3V @ 76mA | SIP-4 | $4.00-5.00 |
+| 1 | U2 | ISO1640BDR | TI I2C Isolator, 1.7 MHz, 3000 VRMS | SOIC-8 | $3.25 |
+| 1 | U3 | ENV-EZO-pH/EC/DO | Atlas Scientific EZO Circuit | Board | $48-58 |
+| 1 | Q1 | 2N7002K,215 | N-FET for power switching (optional) | SOT-23 | $0.10 |
+| 1 | J1 | TE 5227161-6 | BNC Female, PCB edge mount | TH R/A | $2.50-4 |
+| 4 | C1-C4 | Generic | 100nF X7R 50V Ceramic | 0805 | $0.05 ea |
+| 2 | C5, C6 | Generic | 10µF X7R 25V Ceramic | 0805 | $0.30 ea |
+| 1 | R1 | Generic | 10kΩ pull-down for Q1 gate (optional) | 0805 | $0.01 |
+| 4 | R2-R5 | Generic | 4.7kΩ I2C pull-ups (both sides) | 0805 | $0.05 ea |
+| **Total per circuit (standard)** | | | **(standard components only)** | | **$58-71** |
+| **Total per circuit (with N-FET)** | | | **(with power switching)** | | **$58.11-71.11** |
+
+Notes:
+- DC-DC converter (RM-3.33.3S):
+  - C5: 10µF on input (VIN)
+  - C6: 10µF on output (VOUT)
+  - Place close to module pins
+- I2C isolator (ISO1640BDR):
+  - C1, C2: 0.1µF bypass caps on VCC1, VCC2 (per datasheet)
+  - C3, C4: Additional 0.1µF if needed for stability
+- I2C pull-ups: 4× 4.7kΩ (both sides of isolation barrier)
+- **No ferrite beads required** - all standard components
+- Higher I2C speed: 1.7 MHz vs 1 MHz (ADM3260)
+- Higher isolation: 3000 VRMS vs 2500 VRMS (ADM3260)
+
+Reference Designs:
+- Recom RM-3.33.3S Datasheet
+- ISO1640 Datasheet: https://www.ti.com/lit/ds/symlink/iso1640.pdf
+
+#### Option D: Using ISOW77xx ⚠️ NOT RECOMMENDED for I2C
 
 ⚠️ **Design Issue:** ISOW7741/ISOW7841 use unidirectional digital isolator channels (3 forward + 1 reverse),
 which are not designed for bidirectional I2C. Use ADM3260 instead.
@@ -2158,15 +2305,20 @@ which are not designed for bidirectional I2C. Use ADM3260 instead.
 | 1 | U1 | ISOW7741BDFMR | TI Digital Isolator + DC-DC (⚠️ unidirectional) | SOIC-16W | $8.94 |
 | 1 | U1 | ISOW7841DFMR | TI Digital Isolator + DC-DC (⚠️ unidirectional) | SOIC-16W | $10.50 |
 
-Note: Not recommended for I2C applications. Use ADM3260 for proper bidirectional I2C isolation.
+Note: Not recommended for I2C applications. Use Option B or Option C for proper bidirectional I2C isolation.
 
 ### Complete System (3 isolated circuits: pH, EC, DO)
 
-**Option A Total:** ~$165-195 (without probes) - ⚠️ OFAC restricted
-**Option B Total (ADM3260):** ~$168-201 (without probes) ✅ OPNhydro Choice
-**Option C Total (ISOW77xx):** ~$158-201 (without probes) ⚠️ NOT RECOMMENDED (unidirectional I2C)
+**Option A Total:** ~$165-195 (without probes) - ⚠️ OFAC restricted (B0303S)
+**Option B Total (ADM3260):** ~$168-201 (without probes) - Single chip, needs ferrite beads
+**Option C Total (RM-3.33.3S + ISO1640BDR):** ~$174-213 (without probes) - Two chips, standard components
+**Option D Total (ISOW77xx):** ~$158-201 (without probes) - ⚠️ NOT RECOMMENDED (unidirectional I2C)
 
-### OPNhydro Shopping List (ADM3260 Design) ✅ RECOMMENDED
+---
+
+## Shopping Lists for Option B and Option C
+
+### Option B: Complete BOM using ADM3260 (Single-Chip)
 
 **Complete BOM for 3 Isolated Sensors using ADM3260:**
 
@@ -2192,26 +2344,101 @@ Note: Not recommended for I2C applications. Use ADM3260 for proper bidirectional
 | **Standard (per UG-724)** | **$203.88** 💰 | **$205.38** ✅ |
 | **Enhanced (+N-FET)** | **$204.18** | **$205.68** |
 
-**Cost Comparison Summary:**
-- **Standard Build (ADM3260ARMZ)**: $203.88 💰 BEST VALUE
-  - Proper bidirectional I2C isolation
-  - Integrated 150mW DC-DC converter (no external B0303S needed)
-  - Single chip solution - simplest design
-  - Follows EVAL-ADM3260MEBZ UG-724 reference exactly
-  - Requires external 4.7kΩ I2C pull-ups on both sides
-  - Reference: https://www.analog.com/media/en/technical-documentation/user-guides/EVAL-ADM3260MEBZ_UG-724.pdf
+**Option B Summary:**
+- **Single-chip solution** - smallest footprint
+- **Integrated DC-DC converter** - no external isolated power supply needed
+- **Requires specialized ferrite beads** (BLM15HD182SN1)
+- **I2C Speed:** Up to 1 MHz
+- **Isolation:** 2500 VRMS
+- **Total cost:** $203.88 (ADM3260ARMZ) or $205.38 (ADM3260EARMZ with integrated pull-ups)
+- **Reference:** [EVAL-ADM3260MEBZ UG-724](https://www.analog.com/media/en/technical-documentation/user-guides/EVAL-ADM3260MEBZ_UG-724.pdf)
 
-- **Enhanced Build (ADM3260EARMZ)**: $205.38 ✅ RECOMMENDED
-  - Includes integrated I2C pull-ups (saves external resistors)
-  - Simpler assembly - fewer components
-  - Better for commercial products
-  - +$1.50 premium for integrated pull-ups
-
-**Why ADM3260 over ISOW77xx:**
-✅ Proper bidirectional I2C (vs ISOW77xx unidirectional channels)
-✅ Proven industrial design with extensive app notes
+**Pros:**
+✅ Smallest PCB footprint (single chip)
+✅ Integrated power + I2C isolation
 ✅ Hot-swap capable
-✅ Similar cost, better I2C compatibility
+✅ Proven industrial design
+
+**Cons:**
+⚠️ Requires specialized ferrite beads (BLM15HD182SN1)
+⚠️ Lower I2C speed (1 MHz)
+⚠️ Lower isolation voltage (2500 VRMS)
+
+---
+
+### Option C: Complete BOM using RM-3.33.3S + ISO1640BDR (Two-Chip)
+
+**Complete BOM for 3 Isolated Sensors using RM-3.33.3S + ISO1640BDR:**
+
+| Qty | Part Number | Description | Supplier | Unit Cost | Total |
+|-----|-------------|-------------|----------|-----------|-------|
+| 3 | RM-3.33.3S | Recom Isolated DC-DC 3.3V @ 76mA | DigiKey/Mouser | $4.50 | $13.50 |
+| 3 | ISO1640BDR | TI I2C Isolator 1.7MHz, 3000 VRMS | DigiKey/Mouser | $3.25 | $9.75 |
+| 1 | ENV-EZO-pH | Atlas pH EZO Circuit | Atlas-Scientific | $48.00 | $48.00 |
+| 1 | ENV-EZO-EC | Atlas EC EZO Circuit | Atlas-Scientific | $48.00 | $48.00 |
+| 1 | ENV-EZO-DO | Atlas DO EZO Circuit | Atlas-Scientific | $58.00 | $58.00 |
+| 3 | 5227161-6 | TE BNC Connector (edge mount) | DigiKey/Mouser | $3.00 | $9.00 |
+| 3 | 2N7002K,215 | N-FET power switch (optional) | DigiKey/Mouser | $0.10 | $0.30 |
+| 12 | Generic | 100nF X7R 50V 0805 Cap (standard) | DigiKey/Mouser | $0.05 | $0.60 |
+| 6 | Generic | 10µF X7R 25V 0805 Cap (standard) | DigiKey/Mouser | $0.30 | $1.80 |
+| 12 | Generic | 4.7kΩ 0805 I2C pull-ups (both sides) | DigiKey/Mouser | $0.05 | $0.60 |
+| 3 | Generic | 10kΩ 0805 resistor (pull-down, optional) | DigiKey/Mouser | $0.01 | $0.03 |
+| 1 | Custom PCB | 2-layer PCB (see specs above) | JLCPCB/PCBWay | $20.00 | $20.00 |
+
+**Cost Total (excluding probes):** $209.58
+
+**Option C Summary:**
+- **Two-chip solution** - larger footprint than Option B
+- **Standard components only** - all common caps/resistors, no specialized ferrite beads
+- **Higher I2C speed:** Up to 1.7 MHz (vs 1 MHz for ADM3260)
+- **Higher isolation:** 3000 VRMS (vs 2500 VRMS for ADM3260)
+- **Enhanced EMC:** ISO1640 has better electromagnetic compatibility
+- **Total cost:** $209.58 (about $6 more than Option B)
+
+**Pros:**
+✅ Standard components only - no specialized ferrite beads
+✅ Higher I2C speed (1.7 MHz vs 1 MHz)
+✅ Higher isolation voltage (3000 VRMS vs 2500 VRMS)
+✅ Enhanced EMC performance
+✅ Hot-swap capable (ISO1640)
+✅ Easy to source - all common parts
+
+**Cons:**
+⚠️ Two chips instead of one
+⚠️ Larger PCB footprint
+⚠️ More soldering/assembly
+⚠️ Slightly higher cost (+$6)
+
+---
+
+## Decision Guide: Option B vs Option C
+
+| Criteria | Option B (ADM3260) | Option C (RM-3.33.3S + ISO1640BDR) |
+|----------|-------------------|-----------------------------------|
+| **Chip Count** | 1 chip | 2 chips |
+| **PCB Footprint** | Smallest | Medium |
+| **BOM Complexity** | Specialized ferrite beads | All standard components |
+| **I2C Speed** | 1 MHz | **1.7 MHz** |
+| **Isolation** | 2500 VRMS | **3000 VRMS** |
+| **EMC Performance** | Good | **Enhanced** |
+| **Cost** | **$203.88** | $209.58 (+$6) |
+| **Assembly** | **Fewer solder joints** | More solder joints |
+| **Sourcing** | Need specialized parts | **All common parts** |
+
+**Choose Option B (ADM3260) if:**
+- Smallest PCB footprint is priority
+- Single-chip simplicity desired
+- Comfortable sourcing specialized ferrite beads
+- 1 MHz I2C speed is sufficient
+
+**Choose Option C (RM-3.33.3S + ISO1640BDR) if:**
+- Want all standard, easy-to-source components
+- Need higher I2C speed (1.7 MHz)
+- Need higher isolation voltage (3000 VRMS)
+- Building DIY/hobby project with common parts
+- Want to avoid specialized ferrite beads
+
+---
 
 **Capacitor Configuration (per TI SLAU845):**
 - 6× 10nF caps (GRM21BR71A103KA01L): $0.30 total - VDD domain (VCC1/VCC2)

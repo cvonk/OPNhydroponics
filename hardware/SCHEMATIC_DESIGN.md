@@ -1128,6 +1128,20 @@ GPIO1 ───┼──────────────► Float Switch (HI
 
 ## 7. Pump Driver Circuits
 
+> **✅ PROJECT DECISION:** Main circulation pump selected: **AUBIG DC40-1250**
+>
+> **Selection Criteria:**
+> 1. **Price:** $12-18 (most affordable true 12V DC option)
+> 2. **PWM Control:** Native PWM support for variable flow rate control
+> 3. **Reliability:** Brushless motor, 30,000-50,000 hour lifespan
+> 4. **Compatibility:** True 12V DC input, works with existing MOSFET driver design
+>
+> **Key Specifications:**
+> - Flow: 500-510 L/H (130-135 GPH)
+> - Current: 1.2A @ 12V (14.4W)
+> - PWM capable via GPIO10 (25 kHz recommended)
+> - Suitable for NFT, drip, and small-medium DWC systems
+
 All pumps and the ATO valve use the same 12V rail and identical driver circuits.
 
 ### 7.1 12V Main Pump Driver
@@ -1140,12 +1154,12 @@ All pumps and the ATO valve use the same 12V rail and identical driver circuits.
                        D1          PUMP+
                     (SS34)          │
                         │          PUMP
-                        │           │
+                        │         (1.2A)
                ┌────────┴───────┐   │
                │     DRAIN      │   │
         ┌──────┤  Q1            ├───┴── PUMP-
-        │      │  IRLZ44N       │
-        │      │                │
+        │      │  IRLR2905      │
+        │      │  (DPAK)        │
         │      └───────┬────────┘
         │           SOURCE
         │              │
@@ -1161,46 +1175,350 @@ GPIO10 ─┼────────┬─────────────�
                 ─┴─
                 GND
 
-Q1: IRLZ44N (Logic-level N-MOSFET)
-- Vds = 55V, Id = 47A
-- Vgs(th) = 1-2V (works with 3.3V logic)
+Q1: IRLR2905 (Logic-level N-MOSFET, DPAK/TO-252)
+- VDS = 55V, ID = 42A
+- RDS(on) = 40mΩ @ VGS=4.5V, 27mΩ @ VGS=10V
+- VGS(th) = 1.5V (works with 3.3V logic)
+- Power dissipation: 1.2A² × 0.04Ω = 58mW
+- Current margin: 35× (42A / 1.2A)
+- SMD package for automated assembly
+- PWM capable: ESP32 GPIO10 can output PWM for variable pump speed control
 
-D1: SS34 (3A Schottky flyback diode)
+D1: SS34 (3A Schottky flyback diode, SMC)
+- Handles main pump inductive kickback
+
+**Main Pump Specifications:**
+
+Recommended 12V DC submersible pumps for hydroponic circulation:
+
+| Parameter | Specification | Notes |
+|-----------|---------------|-------|
+| **Voltage** | 12V DC ±10% | Matches system power rail |
+| **Current** | 1.0-1.5A typical | Within IRLR2905 capacity (42A) |
+| **Power** | 12-18W maximum | Current × voltage |
+| **Flow Rate** | 600-1000 L/H | 158-264 GPH |
+| **Head Height** | 2-3 meters | 6.5-10 feet max lift |
+| **Type** | Submersible | Water-cooled, silent operation |
+| **Material** | Food-safe plastic or SS | Aquarium/hydroponics rated |
+| **Duty Cycle** | Continuous | 24/7 operation capable |
+| **Connection** | Wire leads or barrel jack | See connector specs below |
+
+**Recommended Pump Models:**
+
+**Option 1: AUBIG DC40-1250 Brushless Submersible Pump** ✅ **PRIMARY RECOMMENDATION**
+
+**Electrical Specifications:**
+- Model: DC40-1250 (also available as DC40E-1250 with NPT fittings)
+- Voltage: 12V DC nominal (11-13V operating range)
+- Current: 1.0-1.2A @ 12V
+- Power: 14.4W maximum
+- Motor: Brushless DC (BLDC) with magnetic drive coupling
+
+**Hydraulic Performance:**
+- Flow Rate: 500-510 L/H (130-135 GPH) at zero head
+- Maximum Head: 5.0m (16.4 ft)
+- Inlet: 13.8mm (0.54") diameter
+- Outlet: 10.0mm (0.39") diameter or 1/4" / 1/2" NPT threads (DC40E model)
+
+**Physical & Environmental:**
+- Dimensions: Compact design, ~90×60×70mm
+- Material: PA66 + Glass fiber (chemical resistant)
+- Waterproof Rating: IP68 (fully submersible)
+- Noise Level: <40 dB (ultra-quiet operation)
+- Lifespan: 30,000-50,000 hours (brushless motor)
+- Operating Temp: Fresh or salt water compatible
+
+**Advanced Features:**
+- ✅ **PWM Speed Control**: Supports PWM signal input for variable flow rate
+- ✅ **0-5V Analog Control**: Alternative speed control via analog voltage
+- ✅ **Solar Compatible**: Can run directly from 12V battery/solar systems
+- ✅ **Magnetic Drive**: No shaft seal = leak-proof, maintenance-free
+- ✅ **Low Voltage Safety**: 12V DC eliminates shock hazard
+- ✅ **Soft Start**: Brushless controller reduces inrush current
+
+**Cost & Availability:**
+- Price: $12-18 USD
+- Sources: Amazon, eBay, AliExpress
+- Part Numbers: DC40-1250 (wire leads), DC40E-1250 (NPT threads)
+
+**Hydroponic System Suitability:**
+
+| System Type | Reservoir | Flow Rate Needed | AUBIG DC40-1250 | Rating |
+|-------------|-----------|------------------|-----------------|--------|
+| NFT (Nutrient Film) | 20-40 gal | 400-600 L/H | 500-510 L/H | ✅ **Excellent** |
+| DWC (Deep Water) | 20-30 gal | 600-800 L/H | 500-510 L/H | ✅ **Good** |
+| Ebb & Flow | 20-30 gal | 600-800 L/H | 500-510 L/H | ✅ **Good** |
+| Drip System | Any | 400-600 L/H | 500-510 L/H | ✅ **Excellent** |
+| Large DWC | 50+ gal | 1000+ L/H | 500-510 L/H | ⚠️ **Marginal** |
+
+**PWM Speed Control Implementation:**
+
+The AUBIG DC40-1250 supports PWM speed control via the 12V power input. The ESP32-S3 can generate PWM on GPIO10 to modulate the MOSFET gate, providing variable pump speed:
+
+```
+PWM Duty Cycle vs Flow Rate (typical):
+- 100% duty cycle: 500-510 L/H (full flow)
+- 75% duty cycle: ~375-380 L/H (75% flow)
+- 50% duty cycle: ~250-255 L/H (50% flow)
+- 25% duty cycle: ~125-130 L/H (25% flow, may stall)
+- Minimum: ~30-40% duty recommended to prevent stall
+
+ESP32-S3 PWM Configuration (suggested):
+- Frequency: 25 kHz (above audible range, smooth motor control)
+- Resolution: 10-bit (0-1023 values for fine control)
+- Channel: LEDC PWM channel 0
+- Pin: GPIO10 (same as pump control)
+
+Benefits of PWM Control:
+- Adjust circulation rate for different growth stages
+- Reduce power consumption during low-demand periods
+- Lower noise levels at reduced speeds
+- Fine-tune nutrient flow for optimal plant uptake
+- Extend pump lifespan with reduced wear
+```
+
+**Power Supply Requirements:**
+
+⚠️ **CRITICAL**: User reviews emphasize stable, adequate power supply is essential for reliability.
+
+```
+12V Power Supply Specification:
+- Voltage: 12V DC ±5% regulation (11.4V - 12.6V)
+- Current capacity: 2A minimum per pump (1.2A × 1.5 safety factor)
+- Ripple voltage: <100mV p-p (brushless motor sensitive to noise)
+- Startup inrush: ~1.8-2.0A for 50-100ms (motor startup)
+- Wire gauge: 18 AWG minimum for <1% voltage drop
+
+Recommended Power Supplies:
+- For main pump only: 12V 3A regulated DC
+- For full system (pump + dosing + ATO): 12V 5-10A regulated DC
+- Quality: Mean Well, TDK-Lambda, or equivalent (low ripple essential)
+```
+
+**Installation Notes:**
+1. Pump must be fully submerged in water before power-on (prevents dry-run damage)
+2. Mount pump vertically or horizontally, avoid inverted position
+3. Use 1/2" ID vinyl tubing or NPT fittings (DC40E model)
+4. Add inline strainer/filter to prevent debris clogging impeller
+5. Test PWM control at low duty cycles to find minimum stable speed
+6. Allow 10-15 second startup delay in software for motor initialization
+
+**Pros:**
+- ✅ True 12V DC input (works with MOSFET driver)
+- ✅ PWM speed control capable (variable flow rate)
+- ✅ Brushless motor (long life, low maintenance)
+- ✅ Ultra-quiet operation (<40dB)
+- ✅ Magnetic drive (leak-proof, no seal wear)
+- ✅ Solar/battery compatible
+- ✅ Very affordable ($12-18)
+- ✅ Proven in hydroponics and aquariums
+
+**Cons:**
+- ⚠️ Sensitive to power quality (needs stable 12V, low ripple)
+- ⚠️ Lower flow than AC pumps (130 GPH vs 400 GPH)
+- ⚠️ Quality control varies (check reviews before purchase)
+- ⚠️ Must run submerged (cannot self-prime)
+- ⚠️ Not suitable for large systems (>40 gallon reservoirs)
+
+---
+
+**Alternative Options:**
+
+**Option 2: Generic 800L/H 12V DC Submersible (Higher flow)**
+- Flow: 800 L/H (211 GPH) @ 12V 1.0-1.2A
+- Head: 2.5m maximum
+- Cost: $15-25
+- Note: Usually NOT PWM compatible (brush motor)
+- Best for: Larger DWC systems needing higher circulation
+
+**Option 3: Seaflo/Shurflo 12V Water Pump (Commercial grade)**
+- Flow: 480-720 L/H @ 12V 1.0-1.5A
+- Features: Self-priming, pressure switch, RV/marine rated
+- Fittings: 3/8" or 1/2" NPT threaded
+- Cost: $25-40
+- Note: Not PWM compatible (diaphragm pump)
+- Best for: Systems requiring self-priming or dry-run protection
+
+**Flow Rate Sizing Guide:**
+
+| System Type | Recommended Flow | AUBIG DC40-1250 | Reservoir Turnover |
+|-------------|------------------|-----------------|-------------------|
+| NFT (Nutrient Film) | 400-600 L/H | ✅ 500-510 L/H | 2-3× per hour |
+| Drip System | 400-600 L/H | ✅ 500-510 L/H | 1-2× per hour |
+| Ebb & Flow (Flood/Drain) | 600-800 L/H | ⚠️ 500-510 L/H | 2× per hour (marginal) |
+| DWC Small (20-30 gal) | 600-800 L/H | ⚠️ 500-510 L/H | 2-2.5× per hour |
+| DWC Large (50+ gal) | 1000+ L/H | ❌ 500-510 L/H | Too low, use Option 2 |
+
+**Note:** AUBIG DC40-1250 is optimized for NFT and drip systems. For large DWC or ebb & flow systems requiring >600 L/H, consider Option 2 (800L/H generic pump) or run two AUBIG pumps in parallel.
+
+**Pump Power Connector:**
+
+```
+Phoenix Contact MSTB 2.5/2-ST-5.08 (2-position screw terminal)
+- Pitch: 5.08mm (0.2")
+- Wire size: 24-12 AWG (for 1.5A @ 12V)
+- PCB mount: Through-hole or SMD
+- Mating plug: MSTB 2.5/2-STF-5.08 (optional, can use direct wire)
+- Alternative: Phoenix Contact 1803280 (same as I2C) for consistency
+
+Pin Assignment:
+Pin 1: 12V_PUMP (switched via Q1)
+Pin 2: GND
+
+Pump Side Connection Options:
+1. Wire leads (most common) - strip and insert into screw terminal
+2. 5.5×2.1mm barrel jack - add PCB-mount jack in parallel
+3. Anderson Powerpole 15A - industrial alternative
+```
+
+**PCB Layout Notes:**
+- Place screw terminal at board edge for easy access
+- 12V trace width: 50 mil (1.27mm) minimum for 1.5A
+- Keep Q1 and screw terminal close to minimize trace resistance
+- Add test points for 12V_SWITCHED and GND for diagnostics
 ```
 
 ### 7.2 12V Dosing Pump Drivers (×4)
 
 ```
-Same circuit as main pump, all on 12V rail.
-Use separate MOSFET for each dosing pump.
+Same circuit topology as main pump, but using smaller AO3400A MOSFETs.
+All on 12V rail. Use separate MOSFET for each dosing pump.
 
-GPIO11 ──► Pump pH Up
-GPIO15 ──► Pump pH Down
-GPIO19 ──► Pump Nutrient A
-GPIO20 ──► Pump Nutrient B
+                                    12V
+                                     │
+                        ┌────────────┤
+                        │            │
+                       D1          PUMP+
+                   (1N5819)         │
+                        │          PUMP
+                        │           │
+               ┌────────┴───────┐   │
+               │     DRAIN      │   │
+        ┌──────┤  Q2-Q5         ├───┴── PUMP-
+        │      │  AO3400A       │
+        │      │  (SOT-23)      │
+        │      └───────┬────────┘
+        │           SOURCE
+        │              │
+       R2             ─┴─
+      100Ω            GND
+        │
+        │
+GPIO ───┼────────┬─────────────────► Gate Drive
+                 │
+                R1
+               10k
+                 │
+                ─┴─
+                GND
+
+Q2-Q5: AO3400A (Logic-level N-MOSFET, SOT-23)
+- VDS = 30V, ID = 5.8A
+- RDS(on) = 33mΩ @ VGS=4.5V
+- Compact SOT-23 package
+- Perfect for 300mA dosing pump loads
+- Alternative: BSS214N (50V, 5A, 100mΩ)
+
+D1: 1N5819 (1A Schottky flyback diode, SOD-123)
+- Lower current rating sufficient for dosing pumps
+
+GPIO Assignments:
+GPIO11 ──► Q2: Pump pH Up
+GPIO15 ──► Q3: Pump pH Down
+GPIO19 ──► Q4: Pump Nutrient A
+GPIO20 ──► Q5: Pump Nutrient B
+
+**Dosing Pump Specifications:**
+
+Recommended 12V DC peristaltic pumps for precise nutrient dosing:
+
+| Parameter | Specification | Notes |
+|-----------|---------------|-------|
+| **Voltage** | 12V DC | Matches system power rail |
+| **Current** | 150-300mA typical | Well within AO3400A capacity (5.8A) |
+| **Power** | 2-4W | Low power consumption |
+| **Flow Rate** | 50-100 mL/min | Precision dosing |
+| **Type** | Peristaltic | Self-priming, no contamination |
+| **Tubing** | Food-grade silicone | 4×6mm or 6×9mm common |
+| **Duty Cycle** | Intermittent (1-5 min/day) | Short bursts for dosing |
+| **Connection** | Wire leads (2-wire) | Red = +12V, Black = GND |
+
+**Recommended Dosing Pump Models:**
+
+**Option 1: Kamoer NKP-DC-B08 Peristaltic Pump** ✅ **PRIMARY RECOMMENDATION**
+- Flow: 47-90 mL/min (tubing dependent)
+- Current: 250-300mA @ 12V
+- Power: 3-4W
+- Tubing: BPT tube (imported, long lifespan), 2.5mm ID × 4.5mm OD or 3mm ID × 5mm OD
+- Features:
+  - Premium build quality (Kamoer brand reputation)
+  - Self-priming and dry-run capable
+  - Reversible flow (change polarity for backflow)
+  - Ultra-quiet operation, low pulse (3-rotor design)
+  - Imported BPT tubing (longer service life than silicone)
+  - Snap-fit pump head (easy tube replacement and cleaning)
+- Cost: $15-25 per pump (×4 = $60-100 total)
+- Sources: Amazon, eBay, Robotistan, Robu.in
+- Part Number: NKP-DC-B08D (black), NKP-DC-B08G (green), NKP-DC-B08B (various)
+- Best for: **Recommended for OPNhydro** - proven reliability, worth the premium over generic
+- Reviews: Praised for build quality and user experience in aquarium hobby
+
+**Option 2: Generic 12V Peristaltic Dosing Pump (Budget Alternative)**
+- Flow: 50-100 mL/min
+- Current: 200-300mA @ 12V
+- Tubing: Food-grade silicone, 4×6mm or 6×9mm
+- Features: Self-priming, bidirectional, chemically resistant
+- Cost: $8-15 per pump (×4 = $32-60 total)
+- Sources: Generic "12V Peristaltic Pump" (Amazon, AliExpress)
+- Brands: INTLLAB, generic Chinese pumps
+- Best for: Tight budgets - saves $40-60 vs Kamoer, but lower reliability
+- Note: May require more frequent tubing replacement (1-2 years vs 3-5 years)
+
+**Option 3: Kamoer KDS Series (High precision stepper)**
+- Models: KDS-FE-2-S17B (50mL/min), KDS-FE-2-S17C (100mL/min)
+- Current: 150-250mA @ 12V
+- Features: Stepper motor, high accuracy, TTL/analog control
+- Cost: $30-50 per pump (×4 = $120-200 total)
+- Best for: Applications requiring ±1% dosing accuracy (commercial/research)
+
+**Dosing Pump Connector (×4):**
+
+```
+Phoenix Contact MSTB 2.5/2-ST-5.08 (2-position screw terminal) ×4
+- One terminal block per pump (Q2-Q5)
+- Wire size: 24-18 AWG (for 300mA @ 12V)
+- Label silkscreen: "pH UP", "pH DN", "NUT A", "NUT B"
+
+Pin Assignment (each pump):
+Pin 1: 12V_PUMP_n (switched via Q2-Q5)
+Pin 2: GND
+
+Alternative Connector:
+- Phoenix Contact 1792887 (pluggable, 2-pos, 5.08mm pitch)
+- Allows easy pump replacement without rewiring
+```
 ```
 
 ### 7.3 ATO Solenoid Valve Driver
 
 ```
-Same circuit as dosing pumps, connected to 12V rail.
+Same circuit topology as dosing pumps, using AO3400A MOSFET.
+Connected to 12V rail.
 Uses normally-closed (NC) solenoid valve for fail-safe operation.
-
-GPIO7 ──► ATO Solenoid Valve (12V NC)
 
                                     12V
                                      │
                         ┌────────────┤
                         │            │
                        D1         VALVE+
-                    (SS34)          │
+                   (1N5819)         │
                         │         VALVE
-                        │        (NC)
+                        │        (NC, 500mA)
                ┌────────┴───────┐   │
                │     DRAIN      │   │
         ┌──────┤  Q6            ├───┴── VALVE-
-        │      │  IRLZ44N       │
-        │      │                │
+        │      │  AO3400A       │
+        │      │  (SOT-23)      │
         │      └───────┬────────┘
         │           SOURCE
         │              │
@@ -1216,19 +1534,256 @@ GPIO7 ──┼────────┬────────────�
                 ─┴─
                 GND
 
-Solenoid Valve Selection:
-- Type: Normally Closed (NC) - fails safe (closed when power off)
-- Voltage: 12V DC
-- Current: 300-500mA typical
-- Connection: 1/2" NPT or hose barb
-- Material: Food-safe (brass or plastic body, EPDM seals)
+Q6: AO3400A (Logic-level N-MOSFET, SOT-23)
+- VDS = 30V, ID = 5.8A
+- RDS(on) = 33mΩ @ VGS=4.5V
+- Handles 500mA solenoid load with margin
+- Power dissipation: ~8mW (very low)
+- Alternative: BSS214N (50V, 5A, 100mΩ)
 
-Safety Notes:
-- NC valve ensures no water flow if controller loses power
-- Float switch (GPIO1 - FLOAT_HIGH) provides hardware backup cutoff
-- Float switch (GPIO0 - FLOAT_FLOW) provides low-level alarm
-- Software timeout prevents flooding if level sensor fails
+D1: 1N5819 (1A Schottky flyback diode, SOD-123)
+- Sufficient for solenoid valve inductive spike suppression
+
+**ATO Solenoid Valve Specifications:**
+
+| Parameter | Specification | Notes |
+|-----------|---------------|-------|
+| **Type** | Normally Closed (NC) | Fail-safe: valve closes on power loss |
+| **Voltage** | 12V DC | Matches system power rail |
+| **Current** | 300-500mA typical | Within AO3400A capacity (5.8A) |
+| **Power** | 4-6W | Coil power consumption |
+| **Pressure** | 0-0.8 MPa (0-116 PSI) | Typical municipal water pressure |
+| **Port Size** | 1/4" to 1/2" | NPT thread or hose barb |
+| **Material** | Brass body, EPDM/NBR seal | Food-safe, corrosion resistant |
+| **Orifice** | 2-10mm | Determines flow rate |
+| **Response** | 50-100ms typical | Fast open/close |
+
+**Recommended Solenoid Valve Models:**
+
+**Option 1: 1/4" NC Brass Solenoid Valve (Recommended for ATO)**
+- Model: Generic "12V DC 1/4" NC Solenoid Valve"
+- Port: 1/4" NPT female threads
+- Pressure: 0-0.8 MPa (0-116 PSI)
+- Orifice: 4-6mm
+- Current: 300-400mA @ 12V DC
+- Material: Brass body, NBR seal (food-safe)
+- Cost: $8-15
+- Sources: Amazon, AliExpress, eBay
+- Best for: Standard municipal water connections
+
+**Option 2: 1/2" NC Solenoid Valve (Higher flow)**
+- Port: 1/2" NPT or hose barb
+- Orifice: 8-10mm
+- Current: 400-500mA @ 12V DC
+- Cost: $12-20
+- Best for: Systems requiring faster reservoir fill
+
+**Option 3: U.S. Solid Solenoid Valve (High quality)**
+- Model: USS-JSV16-NC (1/4"), USS-JSV20-NC (1/2")
+- Material: Brass body, food-grade seals
+- Pressure rating: 0-150 PSI
+- Current: 350mA @ 12V DC
+- Cost: $20-30
+- Features: UL listed, higher reliability
+- Best for: Commercial/professional installations
+
+**ATO Valve Connector:**
+
 ```
+Phoenix Contact MSTB 2.5/2-ST-5.08 (2-position screw terminal)
+- Wire size: 24-18 AWG (for 500mA @ 12V)
+- Label silkscreen: "ATO VALVE" or "WATER IN"
+
+Pin Assignment:
+Pin 1: 12V_VALVE (switched via Q6)
+Pin 2: GND
+
+Valve Side Connection:
+- Most solenoid valves have 2-wire leads (polarity doesn't matter for DC)
+- Some have wire connectors (DIN 43650A common)
+- Strip and insert into screw terminal, or add mating connector
+```
+
+**Safety Notes:**
+- ✅ NC valve ensures no water flow if controller loses power
+- ✅ Float switch (GPIO1 - FLOAT_HIGH) provides hardware backup cutoff
+- ✅ Float switch (GPIO0 - FLOAT_FLOW) provides low-level alarm
+- ✅ Software timeout prevents flooding if level sensor fails
+- ✅ Recommend inline manual shutoff valve for maintenance
+- ✅ Consider water leak sensor near reservoir for additional protection
+
+**Valve Installation:**
+1. Install valve inline on water supply line (before reservoir)
+2. Arrow on valve body indicates flow direction
+3. Mount valve with coil vertical (prevents water ingress)
+4. Use thread sealant (Teflon tape or pipe dope) on NPT threads
+5. Test valve operation before connecting to reservoir
+```
+
+### 7.4 MOSFET Selection Summary
+
+**Design Strategy:** All-SMD design with appropriately-sized MOSFETs for each load type.
+
+| Load | Current | MOSFET | Package | RDS(on) @ 4.5V | Margin | Rationale |
+|------|---------|--------|---------|----------------|--------|-----------|
+| **Main Pump (AUBIG DC40-1250)** | 1.2A | **IRLR2905** | DPAK | 40mΩ | 35× | PWM capable, SMD |
+| **Dosing Pumps (4×)** | 300mA | **AO3400A** | SOT-23 | 33mΩ | 19× | Low cost, efficient |
+| **ATO Solenoid** | 500mA | **AO3400A** | SOT-23 | 33mΩ | 11× | Low cost, efficient |
+
+**Power Dissipation Analysis:**
+- IRLR2905 (Main pump): 1.2A² × 0.04Ω = **58mW** (DPAK handles easily)
+- AO3400A (Dosing): 300mA² × 0.033Ω = **3mW** (negligible for SOT-23)
+- AO3400A (ATO): 500mA² × 0.033Ω = **8mW** (very low for SOT-23)
+
+**Benefits:**
+- ✅ **100% SMD design** - entire board can use pick-and-place assembly
+- ✅ **Compact footprint** - DPAK + 5× SOT-23 (vs 6× TO-220 through-hole)
+- ✅ **Production-friendly** - no manual through-hole soldering required
+- ✅ **Lower assembly cost** - automated SMD assembly throughout
+- ✅ **Appropriate sizing** for each load (not overkill)
+- ✅ **All logic-level compatible** (work with 3.3V GPIO)
+- ✅ **Consistent design** - all MOSFETs are SMD packages
+- ✅ **AO3400A optimization** - Lower RDS(on) (33mΩ vs 100mΩ), lower cost ($0.10 vs $0.20)
+
+**Part Numbers:**
+- Q1 (Main Pump): **IRLR2905** or IRLR2905ZPBF (Infineon, DPAK/TO-252)
+- Q2-Q5 (Dosing Pumps): **AO3400A** (Alpha & Omega, SOT-23) - Primary choice
+- Q6 (ATO Solenoid): **AO3400A** (Alpha & Omega, SOT-23) - Primary choice
+- Alternative for Q2-Q6: BSS214N / BSS214NH6327XTSA1 (Infineon, 5A, SOT-23)
+
+### 7.5 Pump and Valve BOM Summary
+
+> **Main Pump Selection: AUBIG DC40-1250** ✅
+> - **Chosen for:** Best price ($12-18) + PWM control capability
+> - **Advantages:** Variable flow rate, long lifespan, low power consumption
+> - **Suitable for:** NFT, drip systems, small-medium DWC (20-30 gal)
+
+**Complete bill of materials for hydraulic components:**
+
+| Component | Qty | Type | Specifications | Cost (ea) | Total | Notes |
+|-----------|-----|------|----------------|-----------|-------|-------|
+| **Main Circulation Pump** | 1 | Brushless | AUBIG DC40-1250, 510L/H, 12V 1.2A | $12-18 | $15 | ✅ Selected for price + PWM |
+| **pH Up Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ Selected for reliability |
+| **pH Down Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ BPT tubing, premium build |
+| **Nutrient A Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ BPT tubing, premium build |
+| **Nutrient B Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ BPT tubing, premium build |
+| **ATO Solenoid Valve** | 1 | NC Solenoid | 1/4" NPT, 12V 400mA | $8-15 | $12 | Brass body, normally closed |
+| **Power Connectors** | 6 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $3 | 2-position, 5.08mm pitch |
+| | | | | **Subtotal:** | **$110** | ✅ Recommended configuration |
+
+**Why these components were selected:**
+
+**AUBIG DC40-1250 (Main Pump):**
+- ✅ **Lowest cost:** $12-18 vs $20-40 for alternatives
+- ✅ **PWM control:** Variable flow rate via ESP32 GPIO10
+- ✅ **Long lifespan:** Brushless motor, 30k-50k hours
+- ✅ **True 12V DC:** Works with existing MOSFET driver (no AC required)
+- ✅ **Suitable for:** NFT, drip, and small-medium DWC systems (20-30 gal)
+- ⚠️ **Not for:** Large DWC (50+ gal) - use higher-flow alternative below
+
+**Kamoer NKP-DC-B08 (Dosing Pumps):**
+- ✅ **Better reliability:** Proven Kamoer brand reputation in aquarium/hydro industry
+- ✅ **BPT tubing:** Imported, longer lifespan than silicone (3-5 years vs 1-2 years)
+- ✅ **Self-priming + dry-run capable:** Prevents damage if reservoir runs low
+- ✅ **Reversible flow:** Change polarity for backflow/cleaning cycles
+- ✅ **Quieter operation:** 3-rotor design, ultra-low pulse
+- ✅ **Easy maintenance:** Snap-fit pump head for quick tube replacement
+- ✅ **Worth the premium:** Only $40-60 more total (×4) vs generic, significant reliability gain
+- **Best for:** Reliable dosing without spending $120-200 on stepper pumps
+
+**Budget Alternative Configuration (Generic Pumps):**
+
+| Component | Qty | Type | Specifications | Cost (ea) | Total | Notes |
+|-----------|-----|------|----------------|-----------|-------|-------|
+| **Main Circulation Pump** | 1 | Brushless | AUBIG DC40-1250, 510L/H, 12V 1.2A | $12-18 | $15 | ✅ PWM capable, proven reliable |
+| **Dosing Pumps (×4)** | 4 | Peristaltic | Generic 50-100mL/min, 12V 300mA | $8-15 | $40 | Budget option, silicone tubing |
+| **ATO Solenoid Valve** | 1 | NC Solenoid | 1/4" NPT, 12V 400mA | $8-15 | $12 | Brass body, normally closed |
+| **Power Connectors** | 6 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $3 | 2-position, 5.08mm pitch |
+| | | | | **Subtotal:** | **$70** | Minimum viable, lower reliability |
+
+**Note:** Generic pumps save $40-60 but may require more frequent tubing replacement and have higher failure rates.
+
+**Professional/Commercial Configuration (Kamoer KDS Stepper Pumps):**
+
+| Component | Qty | Type | Specifications | Cost (ea) | Total | Notes |
+|-----------|-----|------|----------------|-----------|-------|-------|
+| **Main Circulation Pump** | 1 | Brushless | AUBIG DC40-1250, 510L/H, 12V 1.2A | $12-18 | $15 | ✅ PWM capable, proven reliable |
+| **Dosing Pumps (×4)** | 4 | Peristaltic | Kamoer KDS-FE-2-S17B | $30-50 | $160 | Stepper motor, ±1% accuracy |
+| **ATO Solenoid Valve** | 1 | NC Solenoid | U.S. Solid USS-JSV16-NC | $20-30 | $25 | UL listed, food-grade |
+| **Power Connectors** | 6 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $3 | 2-position, 5.08mm pitch |
+| **12V Power Supply** | 1 | Regulated | Mean Well LRS-50-12 (50W, 4.2A) | $15-20 | $18 | Low ripple for brushless motor |
+| | | | | **Subtotal:** | **$221** | Professional/commercial grade |
+
+**For Large Systems (50+ gal DWC/Ebb & Flow):**
+
+| Component | Qty | Type | Specifications | Cost (ea) | Total | Notes |
+|-----------|-----|------|----------------|-----------|-------|-------|
+| **Main Circulation Pump** | 1 | Submersible | Generic 800L/H, 12V 1.5A | $15-25 | $20 | Higher flow, no PWM |
+| OR: **Dual AUBIG Pumps** | 2 | Brushless | AUBIG DC40-1250 (parallel) | $12-18 | $30 | 1000L/H total, redundant |
+| **Dosing Pumps (×4)** | 4 | Peristaltic | Generic 50-100mL/min | $8-15 | $48 | Budget peristaltic |
+| **ATO Solenoid Valve** | 1 | NC Solenoid | 1/4" NPT, 12V 400mA | $8-15 | $12 | Brass body, normally closed |
+| **Power Connectors** | 6 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $3 | 2-position, 5.08mm pitch |
+| | | | | **Subtotal:** | **$83-113** | Budget, higher flow rate |
+
+**Connector Summary:**
+
+| Location | Connector | Part Number | Pins | Purpose |
+|----------|-----------|-------------|------|---------|
+| J? (Main Pump) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | 2 | 12V switched + GND |
+| J? (pH Up) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | 2 | 12V switched + GND |
+| J? (pH Down) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | 2 | 12V switched + GND |
+| J? (Nutrient A) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | 2 | 12V switched + GND |
+| J? (Nutrient B) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | 2 | 12V switched + GND |
+| J? (ATO Valve) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | 2 | 12V switched + GND |
+
+**Wiring Specifications:**
+
+- **Wire gauge:** 22-18 AWG for dosing pumps and valve (300-500mA)
+- **Wire gauge:** 18 AWG for main pump AUBIG DC40-1250 (1.2A, <1% drop @ 3ft)
+- **Wire type:** Stranded copper, 300V rated minimum
+- **Insulation:** PVC or silicone (silicone preferred for flexibility)
+- **Color code:** Red = +12V switched, Black = GND
+- **Recommended:** Use ferrule crimps for screw terminal connections (prevents strand fraying)
+- **Critical:** For AUBIG pump, keep wire runs short (<3ft) and use quality connectors to minimize voltage drop
+
+**Total System Power Budget (12V rail):**
+
+| Load | Current | Power | Duty Cycle | Avg Power | Notes |
+|------|---------|-------|------------|-----------|-------|
+| Main Pump (AUBIG DC40-1250) | 1.2A | 14.4W | 100% (continuous) | 14.4W | Brushless, PWM capable |
+| pH Up Pump (Peristaltic) | 0.3A | 3.6W | <1% (1-2 min/day) | 0.04W | Intermittent |
+| pH Down Pump (Peristaltic) | 0.3A | 3.6W | <1% (1-2 min/day) | 0.04W | Intermittent |
+| Nutrient A Pump (Peristaltic) | 0.3A | 3.6W | <1% (1-2 min/day) | 0.04W | Intermittent |
+| Nutrient B Pump (Peristaltic) | 0.3A | 3.6W | <1% (1-2 min/day) | 0.04W | Intermittent |
+| ATO Valve (NC Solenoid) | 0.4A | 4.8W | <10% (periodic refill) | 0.48W | Normally closed |
+| **Peak Total** | **2.8A** | **33.6W** | If all run simultaneously | - | Rare condition |
+| **Typical Avg** | **~1.3A** | **~15W** | Normal operation | - | Main pump only |
+
+**12V Power Supply Recommendation:**
+
+⚠️ **CRITICAL for AUBIG DC40-1250**: Brushless motor requires stable, low-ripple DC power supply.
+
+| Specification | Minimum | Recommended | Ideal (Commercial) |
+|---------------|---------|-------------|-------------------|
+| **Voltage** | 12V DC ±5% | 12V DC ±2% | 12V DC ±1% |
+| **Current** | 3A (36W) | 5A (60W) | 10A (120W) |
+| **Ripple** | <200mV p-p | <100mV p-p | <50mV p-p |
+| **Regulation** | Line ±5% | Line/Load ±2% | Line/Load ±1% |
+| **Inrush Handling** | 2× rated | 2× rated | 3× rated |
+| **Use Case** | Budget (no PWM) | Standard (PWM OK) | Professional |
+
+**Recommended Power Supply Models:**
+- **Mean Well LRS-50-12** (50W, 4.2A) - $15-20, low ripple, reliable
+- **Mean Well RS-75-12** (75W, 6A) - $20-30, DIN rail mount option
+- **TDK-Lambda LS50-12** (50W, 4.2A) - $25-35, medical grade, ultra-low ripple
+- **Generic 12V 5A "switching adapter"** - $10-15, acceptable if low ripple verified
+
+**Power Supply Notes:**
+1. ⚠️ **Avoid cheap "12V 5A" adapters** - high ripple can cause AUBIG pump motor jitter/noise
+2. Verify ripple voltage with oscilloscope if using generic power supply
+3. Add 470µF-1000µF bulk capacitor near pump connector if ripple >100mV
+4. Use 18 AWG wire minimum from PSU to PCB (for <1% voltage drop)
+5. Consider UPS/battery backup for main pump to prevent plant stress during power outages
 
 ---
 

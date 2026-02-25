@@ -558,13 +558,28 @@
       "5V": [
         "Power"
       ],
+      "GND": [
+        "Power"
+      ],
+      "Net-(C13-Pad1)": [
+        "Power"
+      ],
       "Net-(D1-C)": [
+        "Power"
+      ],
+      "Net-(EZO-GND)": [
+        "Power"
+      ],
+      "Net-(EZO-VCC)": [
         "Power"
       ],
       "Net-(F1-Pad1)": [
         "Power"
       ],
       "Net-(U2-SW)": [
+        "Power"
+      ],
+      "Net-(U3-V_{ISO})": [
         "Power"
       ]
     },
