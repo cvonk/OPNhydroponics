@@ -561,7 +561,13 @@
       "GND": [
         "Power"
       ],
+      "Net-(C10-Pad1)": [
+        "Power"
+      ],
       "Net-(C13-Pad1)": [
+        "Power"
+      ],
+      "Net-(C27-Pad1)": [
         "Power"
       ],
       "Net-(D1-C)": [
@@ -573,6 +579,18 @@
       "Net-(EZO-VCC)": [
         "Power"
       ],
+      "Net-(EZO1-GND)": [
+        "Power"
+      ],
+      "Net-(EZO1-VCC)": [
+        "Power"
+      ],
+      "Net-(EZO2-GND)": [
+        "Power"
+      ],
+      "Net-(EZO2-VCC)": [
+        "Power"
+      ],
       "Net-(F1-Pad1)": [
         "Power"
       ],
@@ -580,6 +598,12 @@
         "Power"
       ],
       "Net-(U3-V_{ISO})": [
+        "Power"
+      ],
+      "Net-(U4-V_{ISO})": [
+        "Power"
+      ],
+      "Net-(U5-V_{ISO})": [
         "Power"
       ]
     },

@@ -1,4 +1,4 @@
-27427999790173399
+27445752118131868
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -6748,125 +6748,6 @@ capacitor tantalum
 2
 2
 Coert-Vonk
-1X05_1.27MM
-
-
-0
-5
-5
-Coert-Vonk
-1X05_OVAL
-PIN HEADER
-
-0
-5
-5
-Coert-Vonk
-1X05_ROUND
-
-
-0
-5
-5
-Coert-Vonk
-1X05_ROUND_70
-
-
-0
-5
-5
-Coert-Vonk
-1X05_ROUND_76
-
-
-0
-5
-5
-Coert-Vonk
-1X05_SMT
-Pin Headers 5 Pin, 0.1"/2.54mm pitch, SMT
-
-0
-5
-5
-Coert-Vonk
-1X06
-
-
-0
-6
-6
-Coert-Vonk
-1X06-3.5MM
-
-
-0
-6
-6
-Coert-Vonk
-1X06-BIG
-
-
-0
-6
-6
-Coert-Vonk
-1X06-BIGLOCK
-
-
-0
-6
-6
-Coert-Vonk
-1X06-CLEAN
-
-
-0
-6
-6
-Coert-Vonk
-1X06-CLEANBIG
-
-
-0
-6
-6
-Coert-Vonk
-1X06-DTR
-
-
-0
-7
-7
-Coert-Vonk
-1X06-KIT
-1X06-KIT Warning: This is the KIT version of this package. This package has a smaller diameter top stop mask, which doesn't cover the diameter of the pad. This means only the bottom side of the pads' copper will be exposed. You'll only be able to solder to the bottom side.
-
-0
-6
-6
-Coert-Vonk
-1X06-SMD
-
-
-0
-6
-6
-Coert-Vonk
-1X06_LOCK
-This footprint was designed to help hold the alignment of a through-hole component (i.e.  6-pin header) while soldering it into place.   You may notice that each hole has been shifted either up or down by 0.005 of an inch from it's more standard position (which is a perfectly straight line).   This slight alteration caused the pins (the squares in the middle) to touch the edges of the holes.  Because they are alternating, it causes a "brace"  to hold the component in place.  0.005 has proven to be the perfect amount of "off-center" position when using our standard breakaway headers. Although looks a little odd when you look at the bare footprint, once you have a header in there, the alteration is very hard to notice.  Also, if you push a header all the way into place, it is covered up entirely on the bottom side.  This idea of altering the position of holes to aid alignment  will be further integrated into the Sparkfun Library for other footprints.  It can help hold any component with 3 or more connection pins.
-
-0
-6
-6
-Coert-Vonk
-1X06_LONGPADS
-
-
-0
-6
-6
-Coert-Vonk
 0805
 
 
@@ -6888,71 +6769,85 @@ Coert-Vonk
 2
 2
 Coert-Vonk
-ARDIONO-SHIELD
-
-
-0
-38
-38
-Coert-Vonk
-AXIAL-5MM
-
-
+CAP ALUM 2200μF ±20 25V RADIAL
+16*25
+Capacitor Polarised
 0
 2
 2
 Coert-Vonk
-BTN_CK_KSS
+CAP ALUM POLY 1000μF ±20 6.3V
 
 
 0
 2
 2
 Coert-Vonk
-CAP CER 10µF 25V 0805
-
-CL21A106KAYNNNG 
-0
-2
-2
-Coert-Vonk
-CAP CER 22μF 10V 0805
+CAP MLCC 22μF 10V 0805
 
 CL21A226MAYNNNE 
 0
 2
 2
 Coert-Vonk
-CAP CER 33nF 25V 0805
+CAP TANT 10μF ±20 16V 0805
 
-C0805H333J3GACTU 
+TCTP1C106M8R 
 0
 2
 2
 Coert-Vonk
-CAP CER 47μF 10V 0805
+CAP X5R 47μF ±10 10V 1206
 
-
-0
-2
-2
-Coert-Vonk
-CAP CER 100nF 25V 0805
-
-CL21B104KACNNNC 
-0
-2
-2
-Coert-Vonk
-CHIPLED_0805
-CHIPLED{return}{return}Source: http://www.osram.convergy.de/ ... LG_R971.pdf
 
 0
 2
 2
 Coert-Vonk
-CHIPLED_1206
-CHIPLED{return}{return}Source: http://www.osram.convergy.de/ ... LG_LY N971.pdf
+CAP X7R 1μF ±10 25V 0805
+
+
+0
+2
+2
+Coert-Vonk
+CAP X7R 10nF ±10% 50V 0805
+
+
+0
+2
+2
+Coert-Vonk
+CAP X7R 10μF ±10 16V 0805
+
+
+0
+2
+2
+Coert-Vonk
+CAP X7R 22μF ±10 10V 1206
+
+
+0
+2
+2
+Coert-Vonk
+CAP X7R 33nF ±10 25V 0805
+
+
+0
+2
+2
+Coert-Vonk
+CAP X7R 100nF ±10 25V 0805
+
+
+0
+2
+2
+Coert-Vonk
+CONN BNC JACK RA 50Ω
+
 
 0
 2
@@ -6961,6 +6856,20 @@ Coert-Vonk
 CONN JACK 2X5.5mm PJ-063AH
 
 CUI_PJ-063AH
+0
+4
+4
+Coert-Vonk
+CONN MALE 2X5 VERT 2.54mm JTAG
+
+
+0
+10
+10
+Coert-Vonk
+CONN MALE 4POS RA 2mm I2C JST S04B-PASK-2
+
+S04B-PASK-2 
 0
 4
 4
@@ -6993,19 +6902,19 @@ ZX62D-B-5PA830
 9
 9
 Coert-Vonk
-CTZ3
-CTZ3 Series land pattern for variable capacitor - CTZ3E-50C-W1-PF
-
-0
-2
-2
-Coert-Vonk
 DIL08
 Dual In Line Package
 
 0
 8
 8
+Coert-Vonk
+DIODE SCHOTTKY 40V 3A DIOM7959X265N DO214AB
+
+
+0
+2
+2
 Coert-Vonk
 DIODE TVS 15VWM 24.4VC SMBJ15A DO214AA
 
@@ -7084,6 +6993,13 @@ Adafruit Feather HUZZAH ESP8266{return}{return}ESP8266 WiFi development board wi
 30
 30
 Coert-Vonk
+EVAL EZO-PH
+<b>PIN HEADER</b>
+
+0
+6
+6
+Coert-Vonk
 EVAL LCD 20X4 I2C
 
 
@@ -7112,6 +7028,13 @@ Buttons approximate size and position
 32
 32
 Coert-Vonk
+FERRITE BEAD 330Ω 0805
+
+
+0
+2
+2
+Coert-Vonk
 FUSE RKEF500 PTC 60V 5A
 
 RKEF500 
@@ -7126,33 +7049,68 @@ GRM43D
 2
 2
 Coert-Vonk
-HEADER 1X02 VERT 2.54mm
+HEADER FEMALE 1X03 VERT 2.54mm
+
+PPPC031LFBN-RC 
+0
+3
+3
+Coert-Vonk
+HEADER FEMALE ATLASSCIENTIFIC EZO
+
+PPPC031LFBN-RC 
+0
+6
+6
+Coert-Vonk
+HEADER MALE 1X2 VERT 2.54mm
 
 
 0
 2
 2
 Coert-Vonk
-HEADER 1X03 VERT 2.54mm
+HEADER MALE 1X3 RA 2.5mm JST_S3B-XH-A
 
 
 0
 3
 3
 Coert-Vonk
-HEADER 1X06 VERT 2.54mm
+HEADER MALE 1X3 RA 2mm JST S03B-PASK-2
+
+S03B-PASK-2LFSN 
+0
+3
+3
+Coert-Vonk
+HEADER MALE 1X3 VERT 2.54mm
+
+
+0
+3
+3
+Coert-Vonk
+HEADER MALE 1X6 VERT 2.54mm
 
 
 0
 6
 6
 Coert-Vonk
-HEADER 2X05 VERT 2.54mm JTAG
-10-pin JTAG Header, shrouded header, 2-row, 2.54 pitch{return}{return}Specifications:{return}{return}• Manufacturer: Molex{return}• Voltage rating: 250 VDC{return}• Current rating: 2.5 A{return}• Operating temperature: -55 - 120 C{return}{return}Mfr.#: 70246-1004 Mouser #: 538-70246-1004, about $1.19, https://www.mouser.com/datasheet/2/276/0702461004_PCB_HEADERS-229930.pdf data sheet
+IC ISOLTR 2.5KV 2CH I2C 20SSOP ADM3260
 
+ADM3260ARSZ 
 0
-10
-10
+20
+20
+Coert-Vonk
+IC ISOLTR 5kV 4CH GP 20-SOIC ISOW7741
+SOIC, 20 Pin (JEDEC MS-013AC, https://www.analog.com/media/en/package-pcb-resources/package/233848rw_20.pdf), generated with kicad-footprint-generator ipc_gullwing_generator.py
+SOIC SO
+0
+20
+20
 Coert-Vonk
 IND 7.8µH 10A 20.5mΩ
 
@@ -7160,27 +7118,6 @@ IHLP5050EZER7R8M01
 0
 2
 2
-Coert-Vonk
-IRL80A
-IR LED{return}{return}IR transmitter Siemens
-
-0
-2
-2
-Coert-Vonk
-JP1
-JUMPER
-
-0
-2
-2
-Coert-Vonk
-JP2
-JUMPER
-
-0
-3
-3
 Coert-Vonk
 JST-3-PTH
 
@@ -7266,14 +7203,28 @@ MOLEX-1X6-RA_LOCK
 6
 6
 Coert-Vonk
-MOSFET P-CH 60V 12MA TO2336AB
+MOSFET N-CH 30V 5.7A AO3400A SOT23-3L
 
-TP0610T-G 
+
 0
 3
 3
 Coert-Vonk
-MOSFET SI2301CDS  P-CH 20V 3.1A
+MOSFET N-CH 55V 42A IRLR2905TRPBF DPAK
+d-pak (to-252aa)_2
+MOSFET (N-Channel)
+0
+3
+3
+Coert-Vonk
+MOSFET N-CH 60V 320MA SOT23
+
+2N7002K 
+0
+3
+3
+Coert-Vonk
+MOSFET P-CH 20V 3.1A SI2301CDS SOT23-3
 
 SI2301CDS-T1-GE3 
 0
@@ -7371,9 +7322,9 @@ TPS62933DRLR
 8
 8
 Coert-Vonk
-RES 4.7kΩ 0805
+RES 4.7kΩ ±1 18W Yageo 0805
 
-RC0805FR-0710KL 
+
 0
 2
 2
@@ -7381,6 +7332,20 @@ Coert-Vonk
 RES 10kΩ 0805
 
 RC0805FR-0710KL 
+0
+2
+2
+Coert-Vonk
+RES 10kΩ ±1 18W Yageo 0805
+
+
+0
+2
+2
+Coert-Vonk
+RES 16.9kΩ ±1 18W 0805
+
+
 0
 2
 2
@@ -7395,6 +7360,20 @@ Coert-Vonk
 RES 68Ω 0805
 
 RC0805FR-0768RL 
+0
+2
+2
+Coert-Vonk
+RES 100kΩ 0805
+
+RC0805FR-07100KL 
+0
+2
+2
+Coert-Vonk
+RES 100Ω ±1 18W Yageo 0805
+
+
 0
 2
 2
@@ -7546,12 +7525,61 @@ TACT_PANA-EVQ
 2
 2
 Coert-Vonk
+TERM BLOCK 3POS 45DEG 5MM PCB 1862424
+
+
+0
+6
+6
+Coert-Vonk
 TERM BLOCK 4POS 45° 5mm PCB - CONN_1862437
 
 1862437 
 0
 8
 8
+Coert-Vonk
+TERM BLOCK HDR 1WIRE 3POS RA 3.81mm 1803280
+
+
+0
+3
+3
+Coert-Vonk
+TERM BLOCK HDR 2POS RA 3.81mm 1803277
+
+
+0
+2
+2
+Coert-Vonk
+TERM BLOCK HDR 4POS RA 3.81mm 1803293
+
+
+0
+4
+4
+Coert-Vonk
+TERM BLOCK PLUG 1WIRE 3POS 3.81mm 1803281
+
+
+0
+0
+0
+Coert-Vonk
+TERM BLOCK PLUG 2POS 3.81mm 1803578
+
+
+0
+0
+0
+Coert-Vonk
+TERM BLOCK PLUG 4POS 3.81mm 1803594
+
+
+0
+0
+0
 Coert-Vonk
 U57X32
 LED{return}{return}rectangle, 5.7 x 3.2 mm
@@ -7573,6 +7601,48 @@ Arduino Uno-Compatible Footprint with ICSP No mounting holes, no silk labels on 
 0
 38
 38
+Coert-Vonk
+Untitled
+
+
+0
+0
+0
+Coert-Vonk
+Untitled_1
+
+
+0
+0
+0
+Coert-Vonk
+Untitled_2
+
+
+0
+0
+0
+Coert-Vonk
+Untitled_3
+
+
+0
+0
+0
+Coert-Vonk
+Untitled_4
+
+
+0
+0
+0
+Coert-Vonk
+Untitled_5
+
+
+0
+0
+0
 Connector
 BJB_Pico_46.110.1001_Receptacle_Horizontal
 BJB Pico, single terminal block/receptacle, uninsulated, SMD, 6.9x2.3x2.7mm, https://www.bjb.com/media/7a/b3/df/1740905546/DM-6265102-v6_BJB_Datasheet_46.110.1001-0_SMD_Terminal_block_without_housing_Update_03_2022.PDF

@@ -140,6 +140,34 @@ Component Selection:
 - No external diode required (synchronous rectification)
 
 Note: 12V rail powers pumps and ATO valve directly.
+
+**Additional Output Capacitance for Motor Loads:**
+
+⚠️ **CRITICAL**: Add bulk capacitance beyond standard buck converter output caps
+
+```
+Recommended Additional Capacitors on 5V Rail:
+
+5V ──┬──[2×22µF]──┬──[1000µF]──┬──[100nF]──► To ESP32 + Loads
+     │  (standard │   (bulk    │  (HF
+     │   Cout)    │   added)   │   filter)
+    ─┴─          ─┴─          ─┴─
+    GND          GND          GND
+
+Components:
+- C_bulk: 1000µF / 10V low-ESR electrolytic (Panasonic FR series)
+  * Purpose: Buffer ESP32 WiFi TX bursts (500mA for 100-200ms)
+  * Prevents brownout resets during WiFi transmission  * Place within 2cm of ESP32 VIN pin
+
+- C_hf: 100nF / 16V ceramic (X7R)
+  * Purpose: High-frequency noise filtering
+  * Place within 5mm of ESP32 VIN pin
+
+Why 1000µF?
+- ESP32 WiFi TX peak: 500mA for 100-200ms
+- Voltage sag: ΔV = I × Δt / C
+- Target: <100mV sag → C = 0.5A × 0.2s / 0.1V = 1000µF ✅
+```
 ```
 
 ### 1.4 LDO (3.3V)
@@ -153,6 +181,169 @@ Note: 12V rail powers pumps and ATO valve directly.
                              ─┴─
                              GND
 ```
+
+### 1.5 12V Rail Bulk Capacitance (Motor Loads)
+
+⚠️ **CRITICAL**: Brushless motor (AUBIG DC40-1250) requires substantial bulk capacitance for startup inrush
+
+```
+12V Power Supply Filtering:
+
+12V_PSU ──┬──[2200µF]──┬──[100nF]──┬──► To MOSFET drivers
+          │  (bulk)    │  (HF)     │
+         ─┴─          ─┴─          ─┴─
+         GND          GND          GND
+
+Components:
+- C_bulk: 2200µF / 25V low-ESR electrolytic (Panasonic FR series or equivalent)
+  * Purpose: Buffer motor startup inrush current (AUBIG DC40-1250: ~2A for 50-100ms)
+  * Prevents voltage sag that could reset ESP32 or cause pump stall
+  * Place at 12V input near main pump MOSFET Q1
+
+- C_hf: 100nF / 50V ceramic (X7R)
+  * Purpose: High-frequency noise filtering from motor commutation
+  * Place near 12V input connector
+
+Why 2200µF?
+- AUBIG brushless motor startup inrush: ~2A for 50-100ms (1.67× nominal 1.2A)
+- Buck converter output caps: typically 47-220µF (insufficient for motor loads)
+- Voltage sag calculation: ΔV = I × Δt / C
+- Target: <200mV sag → C = 2A × 0.1s / 0.2V = 1000µF minimum
+- Use 2200µF for safety margin and multiple pump operation
+
+Additional Local Bypass Capacitors:
+- Place 100nF ceramic (0805, X7R, 50V) near each MOSFET (Q1-Q6)
+- Connects between 12V drain and GND
+- Provides local energy storage for switching transients
+- Reduces high-frequency noise on 12V rail
+
+12V Distribution Layout:
+┌──────────────────────────────────────────────────────────┐
+│ 12V PSU                                                  │
+│   │                                                      │
+│   ├─[2200µF]─[100nF]─┬─[100nF]─┬─► Q1 (Main Pump)      │
+│                       │         │                        │
+│                       ├─[100nF]─┼─► Q2 (pH Up)          │
+│                       │         │                        │
+│                       ├─[100nF]─┼─► Q3 (pH Down)        │
+│                       │         │                        │
+│                       ├─[100nF]─┼─► Q4 (Nutrient A)     │
+│                       │         │                        │
+│                       ├─[100nF]─┼─► Q5 (Nutrient B)     │
+│                       │         │                        │
+│                       └─[100nF]─┴─► Q6 (ATO Valve)      │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+
+IMPORTANT Power Supply Selection:
+- Use PSU with built-in soft-start (Mean Well LRS-50-12 ✅)
+- Generic PSUs may trip overcurrent during capacitor charging + motor startup
+- Without soft-start: inrush can exceed 10A briefly (2.2mF × dV/dt)
+```
+
+### 1.6 PCB Layout Guidelines for Power Integrity
+
+**Critical Layout Rules:**
+
+1. **Star Ground Configuration:**
+   ```
+   ESP32 GND ──┐
+   Sensors GND ─┼──► Single ground point at 12V PSU GND terminal
+   Pumps GND ───┘
+
+   - Prevents ground loops and noise coupling
+   - Use solid ground plane on bottom layer (recommended)
+   - If using ground traces, make pump ground traces thick (50 mil)
+   ```
+
+2. **Capacitor Placement:**
+   ```
+   Priority Order (closest to load first):
+   1. 100nF ceramics: <5mm from IC pins
+   2. 10-22µF ceramics: <1cm from IC
+   3. 1000-2200µF electrolytics: <2cm from load
+
+   Orientation: Place capacitors perpendicular to current flow for lowest ESL
+   ```
+
+3. **Trace Width Requirements:**
+   ```
+   5V Rail (500mA max):
+   - Minimum: 20 mil (0.5mm)
+   - Recommended: 30 mil (0.76mm)
+   - Length: Keep <10cm from buck to ESP32
+
+   12V Rail (3A peak):
+   - Minimum: 40 mil (1.0mm)
+   - Recommended: 50 mil (1.27mm)  - Main pump branch: 60 mil (1.5mm)
+   - Dosing pump branches: 30 mil (0.76mm)
+
+   For 1oz copper @ 25°C ambient:
+   - 50 mil @ 3A = 10°C rise, 27mV drop per inch
+   ```
+
+4. **Ground Plane Strategy:**
+   ```
+   RECOMMENDED (for 2-layer board):
+   - Top layer: Signal routing + power distribution
+   - Bottom layer: Solid ground plane (remove only for vias/pads)
+
+   ALTERNATIVE (for 4-layer board):
+   - Layer 1 (Top): Signal + high-speed
+   - Layer 2: Ground plane
+   - Layer 3: Power planes (3.3V, 5V, 12V pours)
+   - Layer 4 (Bottom): Ground plane
+   ```
+
+5. **Keep-Out Zones:**
+   ```
+   - ESP32 antenna area: No ground pour, no traces, no vias
+   - I2C traces: Route away from 12V pump power traces (>10mm separation)
+   - Sensor analog signals: Shield with ground guard traces if near pump power
+   ```
+
+### 1.7 Noise Mitigation (Optional - Only if Issues Observed)
+
+**If you experience noise issues (ESP32 resets, erratic sensor readings, WiFi dropouts):**
+
+```
+Symptom-Based Solutions:
+
+1. ESP32 resets during pump operation:
+   ✅ Solution: Increase 5V bulk cap (1000µF → 2200µF)
+   ✅ Solution: Add ferrite bead on 5V input to ESP32 (BLM18PG471SN1D)
+
+2. Erratic I2C sensor readings when pumps run:
+   ✅ Solution: Add ferrite beads on 12V pump power lines (BLM15HD182SN1)
+   ✅ Solution: Use twisted-pair or shielded cable for pump connections
+   ✅ Solution: Add RC snubber across pump terminals (10Ω + 100nF)
+
+3. WiFi disconnects during dosing:
+   ✅ Solution: Increase 5V bulk cap (1000µF → 2200µF)
+   ✅ Solution: Enable ESP32 power save mode between WiFi transmissions
+
+4. Brushed motors only - excessive noise:
+   ✅ Solution: Add 100nF ceramic across motor terminals (suppresses brush arcing)
+   ✅ Solution: Add common-mode choke on motor power wires
+
+LAST RESORT - Optocoupler Isolation:
+- Only if above solutions fail
+- PC817 optocoupler between ESP32 GPIO and MOSFET gate
+- Limitations: Adds complexity, 4µs propagation delay, affects PWM accuracy
+- Cost: ~$0.40 per channel × 6 = $2.40 + 12 resistors
+- NOT RECOMMENDED for this design (pumps share common ground with ESP32)
+```
+
+**Summary - Recommended Capacitor BOM:**
+
+| Location | Capacitor | Qty | Part Example | Purpose |
+|----------|-----------|-----|--------------|---------|
+| 5V buck output | 1000µF 10V electrolytic | 1 | Panasonic EEU-FR1A102 | ESP32 WiFi buffering |
+| 5V buck output | 100nF 16V ceramic | 1 | Generic X7R 0805 | HF filtering |
+| 12V PSU input | 2200µF 25V electrolytic | 1 | Panasonic EEU-FR1E222 | Motor startup buffering |
+| 12V PSU input | 100nF 50V ceramic | 1 | Generic X7R 0805 | HF filtering |
+| Per MOSFET Q1-Q6 | 100nF 50V ceramic | 6 | Generic X7R 0805 | Local bypassing |
+| **Total** | | **10** | | **~$3-4 total** |
 
 ---
 
@@ -257,7 +448,46 @@ Note: Maximum total bus capacitance is 400pF for I2C standard mode.
       Keep traces short and avoid adding extra capacitance to data lines.
 ```
 
-### 3.2 EZO Circuit Connections
+### 3.2 Atlas Scientific EZO — Recommended Parts
+
+**EZO Circuits:**
+
+| Circuit | Price | I2C Addr | Accuracy | Range |
+|---------|-------|----------|----------|-------|
+| **EZO-pH** | $45.99 | 0x63 | ±0.002 pH | 0.001–14.000 |
+| **EZO-EC** | $67.99 | 0x64 | ±2% | 0.07–500,000+ µS/cm |
+| **EZO-DO** | $53.99 | 0x61 | ±0.05 mg/L | 0.01–100+ mg/L |
+
+All circuits: 3.3V–5V, I2C or UART, 13.97 × 20.16mm
+
+**Recommended Probes:**
+
+| Probe | Model | Price | Notes |
+|-------|-------|-------|-------|
+| **pH** | Gen 3 Lab Grade (ENV-40-pH) | $84.99 | Double-junction Ag/AgCl — double-junction required for nutrient solution (resists junction clogging) |
+| **EC** | Conductivity K 1.0 (ENV-40-EC-K1.0) | $139.99 | K=1.0 covers hydroponics range 500–5000 µS/cm; no electrolyte depletion, calibrate at install only |
+| **DO** | Lab Grade DO (ENV-40-DOX) | $259.99 | Membrane replacement ~18 months; recalibrate ~annually; optional — see note below |
+
+**Kits (circuit + probe + calibration solutions + isolated carrier board):**
+
+| Kit | Price |
+|-----|-------|
+| pH Kit | $159.99 |
+| EC K 1.0 Kit | $229.99 |
+
+> **DO is optional for most setups.** pH and EC are essential for every hydroponic system. DO monitoring adds value for DWC (root oxygenation is critical) but is less important for NFT or drip systems. The ENV-40-DOX at $260 is the most expensive single sensor — consider omitting for v1.
+
+> **EC probe K value:** K=1.0 is correct for hydroponics. The EZO-EC supports K=0.01–10.2 but the probe K value must suit your conductivity range. Do not substitute K=0.1 (ultra-pure water) or K=10 (seawater).
+
+> **pH probe storage:** Gen 3 double-junction probe must be stored wet in storage solution (not plain water). Mount BNC connectors so probes are easily removed when the system is idle.
+
+> **Isolated power required:** Each EZO circuit must be powered from an isolated 3.3V supply (B0303S-1WR2 DC-DC) to prevent cross-contamination between pH/EC/DO readings when probes share the same solution.
+
+**Total cost (circuits + probes):** ~$653 all three | ~$590 via kits | ~$394 pH + EC only (no DO)
+
+---
+
+### 3.3 EZO Circuit Connections
 
 ```
 Atlas Scientific EZO circuits use standard I2C.
@@ -284,7 +514,7 @@ For probe isolation, power each EZO from isolated DC-DC:
 3.3V ──► [B0303S-1WR2] ──► 3.3V_ISO ──► EZO VCC
 ```
 
-### 3.3 I2C Connector
+### 3.4 I2C Connector
 
 **OPNhydro uses Phoenix Contact 4-pin (3.5mm pitch) ✅**
 
@@ -351,7 +581,7 @@ Ordering Information:
 
 **Connector comparison:**
 - 1-wire (DS18B20): JST-XH 3-pin (2.5mm pitch) - different pin count!
-- Ultrasonic (HC-SR04): JST-XH 4-pin (2.5mm pitch) - smaller pitch!
+- Ultrasonic (HC-SR04+ / RCWL-1601): JST-XH 4-pin (2.5mm pitch) - smaller pitch!
 - I2C sensors: Phoenix Contact 4-pin (3.5mm pitch) ✅
 
 ---
@@ -367,7 +597,7 @@ Ordering Information:
             │
            [R1] 4.7kΩ pullup resistor
             │
-            └──┬─────────────────────────► DQ to DS18B20 (Pin 2, Yellow)
+            └──┬─────────────────────────► DQ to DS18B20 (Pin 2, White)
                │
     GPIO2 ─────┘
 
@@ -387,7 +617,7 @@ Complete DS18B20 Wiring:
            [R1]
            4.7kΩ
             │
-            ├─────┬────────────────► Pin 2: DQ (Yellow wire)
+            ├─────┬────────────────► Pin 2: DQ (White wire)  [SEN-11050]
             │     │
     GPIO2 ────────┘
             │
@@ -410,13 +640,15 @@ Complete DS18B20 Wiring:
 ```
 ┌─────────────────────┐
 │ Pin 1: GND (Black)  │ ◄── To system GND
-│ Pin 2: DQ (Yellow)  │ ◄── To GPIO2 via 4.7kΩ pullup to 3.3V
+│ Pin 2: DQ (White)   │ ◄── To GPIO2 via 4.7kΩ pullup to 3.3V  [SEN-11050 uses White]
 │ Pin 3: VDD (Red)    │ ◄── To 3.3V rail
 └─────────────────────┘
 
 Connector: JST-XH 3-pin S3B-XH-A (Right-angle, through-hole PCB mount)
 Housing: JST XHP-3 (3-pin for cable assembly)
 Contacts: JST SXH-001T-P0.6 (crimp terminals, 30-26 AWG)
+
+Probe: SparkFun SEN-11050 bare wire ends → crimp SXH-001T-P0.6 contacts onto wires
 ```
 
 ### 4.4 How the 1-Wire Protocol Works
@@ -485,17 +717,34 @@ Each sensor has unique 64-bit ROM ID for addressing:
 
 ### 4.7 Waterproof Probe Specifications
 
+**Selected part: SparkFun SEN-11050** (Waterproof DS18B20, ~$10)
+
 ```
-Recommended probe:
-- Cable: 1-3 meters, silicone jacketed
-- Wire colors: Red (VDD), Yellow (DQ), Black (GND)
-- Probe tip: Stainless steel 304, 6mm × 30-50mm
-- Connector: 3-pin JST-PH (compatible with carrier PCB)
+SparkFun SEN-11050 specifications:
+- Part number: SEN-11050
+- Sensor IC: Maxim DS18B20
+- Cable: ~1.8m (6 ft), PVC jacketed, bare wire ends (no connector)
+- Wire colors: Red (VDD), White (DQ/SIG), Black (GND)
+- Probe tip: Stainless steel, 6mm diameter
 - Temperature range: -55°C to +125°C
-- Waterproof rating: IP68
-- Response time: <10 seconds in water
 - Accuracy: ±0.5°C (-10°C to +85°C)
+- Operating voltage: 3.0V to 5.5V (use 3.3V rail)
+- Interface: 1-Wire
+- Waterproof: Yes (sealed epoxy probe tip)
 ```
+
+**PCB connector wiring for SEN-11050:**
+```
+JST-XH 3-pin on PCB        SEN-11050 wire
+─────────────────────────────────────────
+Pin 1: GND (to GND rail) ◄── Black wire
+Pin 2: DQ  (to GPIO2)    ◄── White wire  ← NOTE: White, not Yellow
+Pin 3: VDD (to 3.3V)     ◄── Red wire
+```
+
+> **Note:** The bare wire ends of the SEN-11050 require termination.
+> Crimp JST-XH contacts (SXH-001T-P0.6) onto each wire to plug directly
+> into the PCB's JST-XH 3-pin header, or use a screw terminal adapter.
 
 ### 4.8 Temperature Conversion Timing
 
@@ -636,64 +885,45 @@ Update Frequency:
 
 ---
 
-## 5. Ultrasonic Sensor (HC-SR04)
+## 5. Ultrasonic Sensor (HC-SR04+ / RCWL-1601)
+
+**Recommended part: RCWL-1601** — native 3.3V operation eliminates the level-shifting voltage divider required by the original 5V HC-SR04. Preferred over HC-SR04+ for better accuracy (1mm resolution vs ±3mm), lower current draw (2.2mA vs 15mA), specified operating temperature (-10°C to 90°C), and consistent quality from a known manufacturer (Cytron). HC-SR04+ is an acceptable alternative if sourcing is constrained — PCB footprint and firmware are identical.
 
 ### 5.1 Basic Circuit
 
 ```
-HC-SR04 Ultrasonic Distance Sensor Connection:
+HC-SR04+ / RCWL-1601 Ultrasonic Distance Sensor Connection:
 
-    5V rail ────────────────────────────► VCC (HC-SR04)
+    3.3V rail ──────────────────────────► VCC
                                            │
                                       ┌────┴────┐
-    GND rail ───────────────────────► │ HC-SR04 │
+    GND rail ───────────────────────► │ Sensor  │
                                       │         │
-    GPIO9 ──────────────────────────► │ TRIG    │ (3.3V logic accepted)
+    GPIO9 ──────────────────────────► │ TRIG    │ (3.3V logic)
     (US_TRIG)                         │         │
-                                      │ ECHO    ├───► 5V output
-                         ┌────────────┤         │
-                         │            └─────────┘
-                         │
-                     ┌───┴───┐
-                     │  5V   │
-                     │ ECHO  │
-                     └───┬───┘
-                         │
-                 ┌───[R1]───┬─────────────► GPIO3 (US_ECHO)
-                 │   1kΩ    │                3.3V input
-        ────────►│          │
-    from ECHO    │        [R2]
-                 │        2.2kΩ
-                 │          │
-                ─┴─        ─┴─
-               (5V)       GND
-
-
-Voltage Divider on ECHO Pin:
-    V_out = V_in × R2 / (R1 + R2)
-    V_out = 5V × 2.2kΩ / (1kΩ + 2.2kΩ)
-    V_out = 5V × 0.6875 = 3.44V ✓ (safe for ESP32 3.3V GPIO)
+    GPIO3 ◄─────────────────────────  │ ECHO    │ (3.3V logic output)
+    (US_ECHO)                         └─────────┘
 
 
 Signal Flow:
 1. ESP32 GPIO9 sends 10µs pulse to TRIG (3.3V HIGH)
-2. HC-SR04 emits ultrasonic burst
-3. HC-SR04 ECHO pin goes HIGH (5V) while waiting for reflection
-4. Voltage divider reduces 5V → 3.44V for ESP32 GPIO3
-5. ESP32 measures ECHO pulse width to calculate distance
+2. Sensor emits 8-cycle 40kHz ultrasonic burst
+3. ECHO pin goes HIGH (3.3V) while waiting for reflection
+4. ESP32 GPIO3 measures ECHO pulse width directly — no voltage divider needed
+5. Distance calculated from pulse width
 ```
 
 ### 5.2 Component Selection
 
 | Component | Value/Type | Purpose | Package |
 |-----------|------------|---------|---------|
-| **HC-SR04** | Ultrasonic sensor | Distance measurement 2-400cm | 4-pin module |
-| **R1** | 1kΩ ±5% | Upper resistor in voltage divider | 0805 SMD |
-| **R2** | 2.2kΩ ±5% | Lower resistor in voltage divider | 0805 SMD |
-| **C1** (optional) | 100µF electrolytic | HC-SR04 power supply filtering | Through-hole |
-| **C2** (optional) | 100nF ceramic | High-frequency decoupling | 0805 SMD |
+| **RCWL-1601** ✅ recommended | Ultrasonic sensor, 3.0V–5.5V | Distance measurement 2-450cm, 1mm res, 2.2mA | 4-pin module |
+| ~~HC-SR04+~~ (alternative) | Ultrasonic sensor, 3.0V–5.5V | Distance measurement 2-400cm, ±3mm, 15mA | 4-pin module |
+| **C1** (optional) | 100nF ceramic | VCC decoupling near connector | 0805 SMD |
 
-### 5.3 How the HC-SR04 Works
+> **Note:** No voltage divider resistors required. ECHO output is at 3.3V when sensor is powered from 3.3V rail — direct ESP32 GPIO connection is safe.
+
+### 5.3 How the Sensor Works
 
 **Ultrasonic Ranging Principle:**
 
@@ -705,7 +935,7 @@ Step 1: Trigger Pulse
               10µs
 
 Step 2: Ultrasonic Burst
-   HC-SR04 emits 8 cycles of 40kHz ultrasonic sound
+   Sensor emits 8 cycles of 40kHz ultrasonic sound
 
    [Sensor] )))))))))) → → → (reflects off water surface) → → → )))))))))) [Sensor]
 
@@ -721,61 +951,28 @@ Step 4: Distance Calculation
    Distance (cm) = pulse_width_µs / 58.2
 ```
 
-**Why the voltage divider?**
-- HC-SR04 operates at 5V logic levels
-- ESP32-C6 GPIOs are **3.3V** (NOT 5V tolerant on most pins)
-- ECHO output is 5V when HIGH → must reduce to ~3.3V
-- TRIG input accepts 3.3V as logic HIGH (TTL threshold ~2V)
+**Why choose a native 3.3V part?**
+- HC-SR04+ / RCWL-1601 operate from 3V–5.5V; ECHO output tracks VCC
+- Powered at 3.3V → ECHO swings 0–3.3V → direct ESP32 GPIO connection
+- Eliminates R1/R2 voltage divider, reducing BOM and PCB area
+- Cleaner signal path with no resistive loading on ECHO
 
-### 5.4 Voltage Divider Design
+### 5.4 PCB Connector
 
-**Calculation for R1 and R2:**
-
+**4-pin JST-XH connector (2.5mm pitch):**
 ```
-Target: Reduce 5V to ~3.3V for ESP32 GPIO3 (US_ECHO)
-
-V_out = V_in × R2 / (R1 + R2)
-
-Let R1 = 1kΩ, R2 = 2.2kΩ:
-V_out = 5V × 2.2kΩ / (1kΩ + 2.2kΩ)
-V_out = 5V × 2.2 / 3.2
-V_out = 3.44V ✓
-
-Tolerance Analysis (±5% resistors):
-  Best case:  R1=0.95kΩ, R2=2.31kΩ → V_out = 3.54V (still safe)
-  Worst case: R1=1.05kΩ, R2=2.09kΩ → V_out = 3.32V (safe)
-
-ESP32-C6 V_IH (Input HIGH voltage): 2.0V minimum
-Maximum safe input: 3.6V (absolute maximum rating)
-Conclusion: 3.44V nominal is safe ✓
-
-Current Draw Through Divider:
-  I = V / R_total = 5V / 3.2kΩ = 1.56mA
-  Power: P = V² / R = 25 / 3200 = 7.8mW (negligible)
-```
-
-**Alternative: Dedicated Level Shifter** (optional, higher cost)
-- Use BSS138-based bidirectional level shifter
-- Cleaner signal with faster rise/fall times
-- More expensive (~$1-2 vs $0.10 for resistors)
-- Recommended only for very long distances (>3m)
-
-### 5.5 PCB Connector
-
-**4-pin JST-XH connector (2.5mm pitch) for HC-SR04:**
-```
-┌─────────────────────┐
-│ Pin 1: VCC (5V)     │ ◄── To 5V rail (from buck converter)
-│ Pin 2: TRIG         │ ◄── To GPIO9 (US_TRIG)
-│ Pin 3: ECHO         │ ◄── To voltage divider → GPIO3
-│ Pin 4: GND          │ ◄── To system GND
-└─────────────────────┘
+┌──────────────────────┐
+│ Pin 1: VCC (3.3V)    │ ◄── To 3.3V rail
+│ Pin 2: TRIG          │ ◄── To GPIO9 (US_TRIG)
+│ Pin 3: ECHO          │ ◄── Direct to GPIO3 (US_ECHO)
+│ Pin 4: GND           │ ◄── To system GND
+└──────────────────────┘
 
 Connector: JST-XH 4-pin B4B-XH-A (Right-angle, PCB mount)
 Housing: JST XHP-4 (4-pin for cable assembly)
 Contacts: JST SXH-001T-P0.6 (crimp terminals)
 
-Standard HC-SR04 wire colors:
+Standard wire colors:
 - VCC:  Red
 - TRIG: Orange or White
 - ECHO: Yellow or Orange
@@ -926,7 +1123,7 @@ Example:
 - Suitable for input
 - Not a strapping pin (no boot conflicts)
 - Not shared with USB, UART, or other critical functions
-- 3.3V tolerant (with voltage divider from 5V HC-SR04)
+- Direct 3.3V connection — HC-SR04+ / RCWL-1601 ECHO output matches 3.3V supply
 
 **Pin Safety:**
 - Both pins are located near each other on ESP32-C6 DevKit
@@ -935,17 +1132,21 @@ Example:
 
 ### 5.9 Specifications and Limitations
 
-**HC-SR04 Specifications:**
+**HC-SR04+ / RCWL-1601 Specifications:**
 ```
-Operating Voltage: 5V DC
+Operating Voltage: 3.0V–5.5V (3.3V or 5V compatible)
 Operating Current: 15mA (typical), 2mA (idle)
 Frequency: 40kHz ultrasonic
 Detection Range: 2cm - 400cm
-Accuracy: ±3mm (typical)
+Accuracy: ±1.5mm (typical)
 Measuring Angle: 15° cone
-Trigger Input: 10µs TTL pulse
-Echo Output: TTL pulse proportional to distance
-Dimension: 45mm × 20mm × 15mm
+Trigger Input: 10µs pulse (3.3V logic)
+Echo Output: 3.3V pulse proportional to distance (when powered at 3.3V)
+Dimension: 45mm × 20mm × 15mm (HC-SR04+ same form factor)
+
+vs original HC-SR04:
+- HC-SR04: 5V only, ECHO outputs 5V → voltage divider required
+- HC-SR04+ / RCWL-1601: 3.3V–5V, ECHO tracks VCC → no divider needed
 ```
 
 **Limitations:**
@@ -987,18 +1188,19 @@ float distance = hcsr04_read_distance_compensated(air_temp);
 
 ### 5.11 Alternative Sensors
 
-For applications requiring higher accuracy or reliability:
-
 **JSN-SR04T (Waterproof Ultrasonic)**
 ```
 Advantages:
 - Waterproof probe (IP67)
 - Better for humid environments
 - Less sensitive to temperature
-- Same 5V interface as HC-SR04
 
-Cost: ~$3-5 (vs $1-2 for HC-SR04)
-Recommended for: Outdoor or very humid grow rooms
+Disadvantages:
+- 5V only interface → requires voltage divider on ECHO (same as original HC-SR04)
+- Larger, bulkier probe assembly
+
+Cost: ~$3-5
+Recommended for: Outdoor or very humid grow rooms where waterproofing is required
 ```
 
 **VL53L0X/VL53L1X (Time-of-Flight Laser)**
@@ -1026,9 +1228,9 @@ Recommended for: High-precision applications
 | Reads maximum (400cm) | Timeout, no reflection | Check water surface is in range (>2cm) |
 | Erratic readings | Turbulent water surface | Add averaging filter in firmware |
 | Readings off by constant | Wrong calculation | Verify using distance / 58.2 formula |
-| No readings at all | No power or bad TRIG | Check 5V supply, verify TRIG pulse with scope |
-| Reads ~85cm constantly | ECHO stuck HIGH | Check voltage divider resistors |
-| Intermittent readings | Weak 5V supply | Add 100µF cap near sensor VCC |
+| No readings at all | No power or bad TRIG | Check 3.3V supply, verify TRIG pulse with scope |
+| ECHO always HIGH | GPIO3 floating or shorted | Check connector wiring and PCB trace |
+| Intermittent readings | Weak 3.3V supply near connector | Add 100nF decoupling cap near VCC pin |
 | Reading drifts | Temperature change | Implement temperature compensation |
 
 **Firmware Filtering for Stable Readings:**
@@ -1065,21 +1267,18 @@ float get_stable_distance(void) {
 
 **Component Placement:**
 ```
-1. Place voltage divider resistors (R1, R2) close to ESP32 GPIO3 pin
-   - Minimize trace length from divider to GPIO
-   - Reduces noise pickup
+1. Optional decoupling capacitor:
+   - C1 (100nF): Near connector VCC pin for high-frequency decoupling
 
-2. Optional decoupling capacitors:
-   - C1 (100µF): Near HC-SR04 connector VCC pin
-   - C2 (100nF): Parallel with C1 for high-frequency noise
-
-3. Keep TRIG and ECHO traces separated
+2. Keep TRIG and ECHO traces separated
    - Prevent crosstalk between output and input signals
    - Route on opposite sides of board if possible
 
-4. HC-SR04 connector placement:
+3. Connector placement:
    - Board edge for easy access
    - Away from BNC connectors (avoid physical interference)
+
+Note: No voltage divider resistors needed — simplified layout vs 5V HC-SR04.
 ```
 
 **Trace Routing:**
@@ -1094,14 +1293,84 @@ float get_stable_distance(void) {
 
 ## 6. Float Switch Interface
 
+### 6.1 Part Selection — Horizontal vs Vertical
+
+Two mounting styles are suitable. **Horizontal side-mount is recommended** for OPNhydro:
+
 ```
-Float Switch - FLOW (low level alarm):
+Horizontal (side-mount):               Vertical (top/bottom-mount):
+
+   ══════════ ← HIGH hole ══════          ┌──stem──┐   ← lid/top mount
+   │          ┌───┤>────┐            │    │        │
+   │    water │   float │            │    │  float │ hangs down
+   │          └─────────┘            │    └────────┘
+   ══════════ ← LOW hole ═══          ══════════════
+```
+
+| | Horizontal (LH25) ✅ | Vertical (M8000) |
+|---|---|---|
+| **Level precision** | Set by hole position (±5mm) | Depends on float travel distance |
+| **Mounting** | Side wall, 1/2" NPT | Lid/top or side, 1/8" NPT |
+| **NO/NC selection** | Flip float orientation | Fixed NC (M8000) |
+| **Tank holes** | 2 × 1/2" side holes | 2 × 1/8" holes (top or side) |
+| **Chemical resistance** | PP or PVDF | PP |
+| **IP rating** | IP68 | Not rated |
+| **Typical cost** | ~$25 each | ~$15 each |
+| **Best for** | Open-top or side-access reservoir | Sealed lid, top-mount only |
+
+**Key advantage of horizontal:** The sensing level is fixed by where you drill the hole — no float travel calculation, no ambiguity. Reef keepers have used these in similar chemical environments for decades.
+
+---
+
+### 6.2 Recommended: Flowline LH25-1101 (Horizontal, PP)
+
+```
+Contact:      SPST dry reed, selectable NO/NC by float orientation
+Rating:       30VA @ 120V AC/DC — far exceeds 3.3V GPIO pullup current
+Material:     Polypropylene (PP) body and float
+Mount:        1/2" NPT side-wall bulkhead
+Accuracy:     ±5mm in water
+Repeatability:±2mm
+Temperature:  -40°C to 105°C
+Pressure:     100 psi max
+IP rating:    IP68 (NEMA 6)
+Wire:         2' (61cm), 2-conductor, 22 AWG
+Float orient: Hinge UP = normally open; Hinge DOWN = normally closed
+```
+
+**Wire as NC (hinge pointing down):**
+```
+Float arm UP   (water at/above switch) → magnet actuates reed → NC CLOSED → GPIO LOW  (0)
+Float arm DOWN (water below switch)    → magnet away from reed → NC OPEN  → GPIO HIGH (1)
+```
+
+**Mounting positions:**
+```
+FLOAT_FLOW  (GPIO0): Hole at LOW water mark  — GPIO HIGH = low-water alarm, stop pumps
+FLOAT_HIGH  (GPIO1): Hole at HIGH water mark — GPIO HIGH = water above cutoff?
+
+ ⚠ Note for FLOAT_HIGH with NC and hinge-down:
+   GPIO HIGH when float arm DOWN = water BELOW the switch (normal during filling)
+   GPIO LOW  when float arm UP   = water HAS REACHED the cutoff level → stop ATO
+
+ Firmware must treat GPIO1 LOW as the ATO stop condition (inverse of FLOAT_FLOW).
+ Alternatively, mount FLOAT_HIGH with hinge UP (NO) and treat GPIO1 HIGH as stop.
+```
+
+> **Alternative:** Madison M8000 (1/8" NPT vertical NC, PP, 30VA) if side-wall mounting is not possible (e.g., opaque rigid reservoir with no accessible side). Same GPIO circuit applies.
+
+---
+
+### 6.3 Circuit
+
+```
+Float Switch - FLOW (low level alarm, GPIO0):
         3.3V
          │
         R1
        10k (pullup)
          │
-GPIO0 ───┼──────────────► Float Switch (FLOW) ──► GND
+GPIO0 ───┼──────────────► LH25 FLOW (NC, hinge down) ──► GND
          │
         C1
        100nF (debounce)
@@ -1109,13 +1378,13 @@ GPIO0 ───┼──────────────► Float Switch (FL
         ─┴─
         GND
 
-Float Switch - HIGH (high level cutoff):
+Float Switch - HIGH (high level cutoff, GPIO1):
         3.3V
          │
         R1
        10k (pullup)
          │
-GPIO1 ───┼──────────────► Float Switch (HIGH) ──► GND
+GPIO1 ───┼──────────────► LH25 HIGH (NC, hinge down) ──► GND
          │
         C1
        100nF (debounce)
@@ -1149,7 +1418,10 @@ All pumps and the ATO valve use the same 12V rail and identical driver circuits.
 ```
                                     12V
                                      │
-                        ┌────────────┤
+                        ┌────────────┼────┬──── 12V rail
+                        │            │    │
+                        │           C2  ─┴─
+                        │          100nF GND (local bypass)
                         │            │
                        D1          PUMP+
                     (SS34)          │
@@ -1174,6 +1446,11 @@ GPIO10 ─┼────────┬─────────────�
                  │
                 ─┴─
                 GND
+
+C2: 100nF / 50V ceramic (X7R, 0805)
+- Local bypass capacitor for switching transients
+- Place within 5mm of Q1 DRAIN pin
+- Reduces high-frequency noise on 12V rail
 
 Q1: IRLR2905 (Logic-level N-MOSFET, DPAK/TO-252)
 - VDS = 55V, ID = 42A
@@ -1373,9 +1650,10 @@ Pump Side Connection Options:
 
 **PCB Layout Notes:**
 - Place screw terminal at board edge for easy access
-- 12V trace width: 50 mil (1.27mm) minimum for 1.5A
+- 12V trace width: 50 mil (1.27mm) minimum for main pump
 - Keep Q1 and screw terminal close to minimize trace resistance
 - Add test points for 12V_SWITCHED and GND for diagnostics
+- **C2 (100nF bypass)**: Place within 5mm of Q1 DRAIN pin for best performance
 ```
 
 ### 7.2 12V Dosing Pump Drivers (×4)
@@ -1386,7 +1664,10 @@ All on 12V rail. Use separate MOSFET for each dosing pump.
 
                                     12V
                                      │
-                        ┌────────────┤
+                        ┌────────────┼────┬──── 12V rail
+                        │            │    │
+                        │           C2  ─┴─
+                        │          100nF GND (local bypass)
                         │            │
                        D1          PUMP+
                    (1N5819)         │
@@ -1560,32 +1841,28 @@ D1: 1N5819 (1A Schottky flyback diode, SOD-123)
 
 **Recommended Solenoid Valve Models:**
 
-**Option 1: 1/4" NC Brass Solenoid Valve (Recommended for ATO)**
-- Model: Generic "12V DC 1/4" NC Solenoid Valve"
-- Port: 1/4" NPT female threads
-- Pressure: 0-0.8 MPa (0-116 PSI)
-- Orifice: 4-6mm
-- Current: 300-400mA @ 12V DC
-- Material: Brass body, NBR seal (food-safe)
-- Cost: $8-15
-- Sources: Amazon, AliExpress, eBay
-- Best for: Standard municipal water connections
+**✅ Recommended: DIGITEN DC 12V 1/4" NC Quick-Connect**
+- Model: DIGITEN K170403
+- Port: 1/4" quick-connect (fits standard 1/4" OD tubing directly — no NPT adapter needed)
+- Type: Direct-acting, zero-pressure rated (works on gravity-fed top-off tanks)
+- Current: ~400mA @ 12V DC (4.8W)
+- Material: Food-grade plastic body, NBR seal
+- Pressure: 0–0.5 MPa (0–72 PSI)
+- Cost: ~$10
+- Best for: RO/clean water ATO on gravity or mains supply
 
-**Option 2: 1/2" NC Solenoid Valve (Higher flow)**
-- Port: 1/2" NPT or hose barb
-- Orifice: 8-10mm
-- Current: 400-500mA @ 12V DC
-- Cost: $12-20
-- Best for: Systems requiring faster reservoir fill
+> **Why not the 2V025-08 (ANGGREK/AirTAC)?** The 2V025 is a pneumatic valve (designed for air/gas) with an anodized aluminum body. It functions for clean water short-term but is not rated for continuous liquid service. Brass or food-grade plastic bodies are more appropriate for water ATO.
 
-**Option 3: U.S. Solid Solenoid Valve (High quality)**
-- Model: USS-JSV16-NC (1/4"), USS-JSV20-NC (1/2")
-- Material: Brass body, food-grade seals
-- Pressure rating: 0-150 PSI
-- Current: 350mA @ 12V DC
-- Cost: $20-30
-- Features: UL listed, higher reliability
-- Best for: Commercial/professional installations
+**Alternative: U.S. Solid 1/4" NC Nylon 12V** (~$15–20)
+- Direct-acting, NPT threads, water-specific design
+- Lower power than U.S. Solid brass model (~350mA)
+- Best for: Installations needing NPT fittings and known-brand sourcing
+
+**High-end: U.S. Solid 1/4" NC Brass/Viton** (~$20–30)
+- Model: USS2-00051
+- Brass body, Viton seal, IP65, direct-acting, 0–101 PSI
+- Current: ~1.17A (14W) — **update power budget if selected**
+- Best for: Commercial/long-life installations; note high coil current
 
 **ATO Valve Connector:**
 
@@ -1667,7 +1944,7 @@ Valve Side Connection:
 | **pH Down Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ BPT tubing, premium build |
 | **Nutrient A Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ BPT tubing, premium build |
 | **Nutrient B Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ BPT tubing, premium build |
-| **ATO Solenoid Valve** | 1 | NC Solenoid | 1/4" NPT, 12V 400mA | $8-15 | $12 | Brass body, normally closed |
+| **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403, 1/4" QC, 12V 400mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
 | **Power Connectors** | 6 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $3 | 2-position, 5.08mm pitch |
 | | | | | **Subtotal:** | **$110** | ✅ Recommended configuration |
 
@@ -1697,7 +1974,7 @@ Valve Side Connection:
 |-----------|-----|------|----------------|-----------|-------|-------|
 | **Main Circulation Pump** | 1 | Brushless | AUBIG DC40-1250, 510L/H, 12V 1.2A | $12-18 | $15 | ✅ PWM capable, proven reliable |
 | **Dosing Pumps (×4)** | 4 | Peristaltic | Generic 50-100mL/min, 12V 300mA | $8-15 | $40 | Budget option, silicone tubing |
-| **ATO Solenoid Valve** | 1 | NC Solenoid | 1/4" NPT, 12V 400mA | $8-15 | $12 | Brass body, normally closed |
+| **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403, 1/4" QC, 12V 400mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
 | **Power Connectors** | 6 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $3 | 2-position, 5.08mm pitch |
 | | | | | **Subtotal:** | **$70** | Minimum viable, lower reliability |
 
@@ -1709,7 +1986,7 @@ Valve Side Connection:
 |-----------|-----|------|----------------|-----------|-------|-------|
 | **Main Circulation Pump** | 1 | Brushless | AUBIG DC40-1250, 510L/H, 12V 1.2A | $12-18 | $15 | ✅ PWM capable, proven reliable |
 | **Dosing Pumps (×4)** | 4 | Peristaltic | Kamoer KDS-FE-2-S17B | $30-50 | $160 | Stepper motor, ±1% accuracy |
-| **ATO Solenoid Valve** | 1 | NC Solenoid | U.S. Solid USS-JSV16-NC | $20-30 | $25 | UL listed, food-grade |
+| **ATO Solenoid Valve** | 1 | NC Solenoid | U.S. Solid 1/4" NC Brass/Viton, 12V ~1.17A | $20-30 | $25 | IP65, direct-acting — note: 14W coil, update power budget |
 | **Power Connectors** | 6 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $3 | 2-position, 5.08mm pitch |
 | **12V Power Supply** | 1 | Regulated | Mean Well LRS-50-12 (50W, 4.2A) | $15-20 | $18 | Low ripple for brushless motor |
 | | | | | **Subtotal:** | **$221** | Professional/commercial grade |
@@ -1721,7 +1998,7 @@ Valve Side Connection:
 | **Main Circulation Pump** | 1 | Submersible | Generic 800L/H, 12V 1.5A | $15-25 | $20 | Higher flow, no PWM |
 | OR: **Dual AUBIG Pumps** | 2 | Brushless | AUBIG DC40-1250 (parallel) | $12-18 | $30 | 1000L/H total, redundant |
 | **Dosing Pumps (×4)** | 4 | Peristaltic | Generic 50-100mL/min | $8-15 | $48 | Budget peristaltic |
-| **ATO Solenoid Valve** | 1 | NC Solenoid | 1/4" NPT, 12V 400mA | $8-15 | $12 | Brass body, normally closed |
+| **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403, 1/4" QC, 12V 400mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
 | **Power Connectors** | 6 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $3 | 2-position, 5.08mm pitch |
 | | | | | **Subtotal:** | **$83-113** | Budget, higher flow rate |
 

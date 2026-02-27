@@ -6,7 +6,10 @@
       "WebFetch(domain:www.alldatasheet.com)",
       "WebFetch(domain:www.ti.com)",
       "WebFetch(domain:www.analog.com)",
-      "WebFetch(domain:robu.in)"
+      "WebFetch(domain:robu.in)",
+      "WebFetch(domain:media.digikey.com)",
+      "WebFetch(domain:www.gotronic.fr)",
+      "WebFetch(domain:www.adafruit.com)"
     ]
   }
 }
