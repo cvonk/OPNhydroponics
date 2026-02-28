@@ -514,7 +514,77 @@ For probe isolation, power each EZO from isolated DC-DC:
 3.3V ──► [B0303S-1WR2] ──► 3.3V_ISO ──► EZO VCC
 ```
 
-### 3.4 I2C Connector
+### 3.4 Switching EZO Circuits to I2C Mode (Manual, No UART Required)
+
+EZO circuits ship in **UART mode** (green LED). They must be switched to **I2C mode** (blue LED)
+before connecting to OPNhydro. This is done by briefly shorting two pins at power-on — no USB
+adapter, no serial terminal, no programming required.
+
+**LED color key:**
+```
+Green = UART mode
+Blue  = I2C mode
+```
+
+**Pins to short (by circuit type):**
+
+| EZO Circuit | Short these two pins | Default I2C address after switch |
+|-------------|----------------------|----------------------------------|
+| EZO-pH      | TX → PGND            | 0x63 (99)                        |
+| EZO-EC      | TX → PGND            | 0x64 (100)                       |
+| EZO-DO      | TX → PGND            | 0x61 (97)                        |
+
+**Step-by-step procedure (from Atlas Scientific EZO pH datasheet, p.37):**
+
+```
+1. Disconnect GND (power off the EZO circuit)
+
+2. Disconnect TX and RX from any microcontroller
+
+3. Connect TX to PGND using a jumper wire
+   (short these two pins directly on the EZO carrier board)
+
+4. Confirm RX is disconnected — leaving RX connected will prevent switching
+
+5. Connect GND (power on)
+
+6. Wait for LED to change from Green → Blue
+   (takes ~2 seconds; indicates I2C mode is now active)
+
+7. Disconnect GND (power off)
+
+8. Remove the TX-to-PGND jumper wire
+
+9. Reconnect SDA, SCL, VCC, GND for normal I2C operation
+```
+
+> **Important:** RX must be floating (disconnected) during the switch.
+> If RX is connected or pulled to any voltage, the mode switch will not occur.
+
+> **Address reset:** The manual switch always resets the I2C address to the
+> circuit's factory default (see table above). If you need a non-default address,
+> set it via I2C command (`I2C,<addr>`) after switching.
+
+**Wiring diagram for the switch:**
+
+```
+          EZO Circuit (during switching only)
+
+    VCC ─────── [leave disconnected until step 5]
+    GND ─────── [connect at step 5, disconnect at step 7]
+    TX  ─┐
+         │ jumper wire (short for steps 3–8)
+    PGND─┘
+    RX  ─────── [must be disconnected / floating]
+    SDA ─────── [leave disconnected until step 9]
+    SCL ─────── [leave disconnected until step 9]
+```
+
+**Reversing back to UART:** Same procedure — short TX to PGND again; LED changes Blue → Green.
+
+---
+
+### 3.5 I2C Connector
 
 **OPNhydro uses Phoenix Contact 4-pin (3.5mm pitch) ✅**
 
@@ -583,6 +653,172 @@ Ordering Information:
 - 1-wire (DS18B20): JST-XH 3-pin (2.5mm pitch) - different pin count!
 - Ultrasonic (HC-SR04+ / RCWL-1601): JST-XH 4-pin (2.5mm pitch) - smaller pitch!
 - I2C sensors: Phoenix Contact 4-pin (3.5mm pitch) ✅
+
+---
+
+### 3.6 EZO Circuit Calibration
+
+All calibration is performed over I2C by sending ASCII command strings to each circuit's address.
+After sending a command, wait **300 ms** before reading the response.
+
+Query current calibration status at any time with `Cal,?` → returns `?Cal,<n>` where `n` = number
+of calibration points stored (0 = uncalibrated).
+
+---
+
+#### EZO-pH — 3-Point Calibration (address 0x63)
+
+**Calibration solutions needed:** pH 4.00, 7.00, 10.00 buffers
+**Order is mandatory:** mid → low → high. Starting over with `Cal,mid` clears all stored points.
+
+```
+Step 1 — Mid-point (pH 7.00)
+  Place probe in pH 7.00 buffer.
+  Wait for readings to stabilize (~1–2 min).
+  Send:  Cal,mid,7
+  Wait:  300 ms
+  Read:  response (should be "*OK")
+
+Step 2 — Low-point (pH 4.00)
+  Rinse probe with DI water, dry gently.
+  Place probe in pH 4.00 buffer.
+  Wait for readings to stabilize (~1–2 min).
+  Send:  Cal,low,4
+  Wait:  300 ms
+  Read:  response
+
+Step 3 — High-point (pH 10.00)
+  Rinse probe with DI water, dry gently.
+  Place probe in pH 10.00 buffer.
+  Wait for readings to stabilize (~1–2 min).
+  Send:  Cal,high,10
+  Wait:  300 ms
+  Read:  response
+
+Verify: Send Cal,?  →  expect ?Cal,3
+```
+
+| Command | Description |
+|---------|-------------|
+| `Cal,mid,7` | Midpoint calibration at pH 7 (must do first) |
+| `Cal,low,4` | Low-point calibration at pH 4 |
+| `Cal,high,10` | High-point calibration at pH 10 |
+| `Cal,?` | Query — returns `?Cal,0/1/2/3` |
+| `Cal,clear` | Erase all calibration data |
+
+> **Recalibrate:** Every 6–12 months, or when probe response drifts >0.1 pH.
+> **Storage:** Keep Gen 3 probe tip submerged in storage solution when not in use.
+
+---
+
+#### EZO-EC — 2-Point Calibration (address 0x64, K=1.0 probe)
+
+**Calibration solutions needed:** 12,880 µS/cm and 80,000 µS/cm standards
+(Atlas Scientific COND-12880 and COND-80000, or equivalent NIST-traceable solutions)
+
+```
+Step 1 — Dry calibration
+  Remove probe from any liquid. Ensure probe is completely dry.
+  Send:  Cal,dry
+  Wait:  300 ms
+  Read:  response (*OK)
+
+Step 2 — Low-point (12,880 µS/cm)
+  Place probe in 12,880 µS/cm standard.
+  Wait for readings to stabilize (~1 min).
+  Send:  Cal,low,12880
+  Wait:  300 ms
+  Read:  response
+
+Step 3 — High-point (80,000 µS/cm)
+  Rinse probe with DI water, dry gently.
+  Place probe in 80,000 µS/cm standard.
+  Wait for readings to stabilize (~1 min).
+  Send:  Cal,high,80000
+  Wait:  300 ms
+  Read:  response
+
+Verify: Send Cal,?  →  expect ?Cal,2
+```
+
+| Command | Description |
+|---------|-------------|
+| `Cal,dry` | Dry calibration (always first) |
+| `Cal,low,12880` | Low-point at 12,880 µS/cm (K=1.0) |
+| `Cal,high,80000` | High-point at 80,000 µS/cm (K=1.0) |
+| `Cal,one,<value>` | Single-point calibration (alternative to 2-point) |
+| `Cal,?` | Query — returns `?Cal,0/1/2` |
+| `Cal,clear` | Erase all calibration data |
+
+> **Recalibrate:** Annually or when probe is replaced.
+> **K value:** Confirm probe is K=1.0 (`K,?` should return `?K,1.00`). If not, set with `K,1.0`.
+
+---
+
+#### EZO-DO — 1-Point Atmospheric Calibration (address 0x61)
+
+**No calibration solution required** for standard atmospheric calibration.
+Optional zero-point uses sodium sulfite solution (Na₂SO₃) to create 0 mg/L DO water.
+
+```
+Step 1 — Atmospheric (single-point, sufficient for hydroponics)
+  Remove probe from water.
+  Expose probe to open air for 30–60 seconds (readings must stabilize).
+  Send:  Cal
+  Wait:  300 ms
+  Read:  response (*OK)
+
+Verify: Send Cal,?  →  expect ?Cal,1
+
+Optional Step 2 — Zero-point (improves accuracy, rarely needed)
+  Prepare sodium sulfite solution (Na₂SO₃ in DI water).
+  Submerge probe until DO reading reaches 0.00 mg/L.
+  Send:  Cal,0
+  Wait:  300 ms
+  Read:  response
+
+Verify: Send Cal,?  →  expect ?Cal,2
+```
+
+| Command | Description |
+|---------|-------------|
+| `Cal` | Atmospheric single-point calibration |
+| `Cal,0` | Zero-point calibration (0 mg/L, optional) |
+| `Cal,?` | Query — returns `?Cal,0/1/2` |
+| `Cal,clear` | Erase all calibration data |
+
+> **Recalibrate:** Every 8–12 months, or after membrane replacement.
+> **Temperature compensation:** Send `T,<temp>` before calibrating if water temp ≠ 25°C.
+
+---
+
+#### General I2C Calibration Notes
+
+```
+I2C transaction for any calibration command:
+
+1. Write command string to EZO address (e.g., 0x63)
+   e.g.,  i2c_write(0x63, "Cal,mid,7")
+
+2. Wait 300 ms minimum before reading response
+
+3. Read 1+ bytes from EZO address
+   Response byte 1 = status code:
+     1 = success (*OK)
+     2 = syntax error
+     254 = still processing (wait longer)
+     255 = no data
+
+4. If status = 254, wait another 100 ms and retry read
+```
+
+**Calibration frequency summary:**
+
+| Circuit | Method | Solutions | Frequency |
+|---------|--------|-----------|-----------|
+| EZO-pH  | 3-point | pH 4, 7, 10 buffers | Every 6–12 months |
+| EZO-EC  | 2-point + dry | 12,880 + 80,000 µS/cm | Annually |
+| EZO-DO  | 1-point atmospheric | None (air) | Every 8–12 months |
 
 ---
 
@@ -2064,27 +2300,12 @@ Valve Side Connection:
 
 ---
 
-## 8. Status LED (WS2812B)
+## 8. Status LED
 
-```
-        5V ──────┬────────────────────► VDD
-                 │
-               C1
-              100nF
-                 │
-               ─┴┬─
-              GND│
-                 │
-                 │    ┌─────────────┐
-        GPIO13 ──┴──► │ DIN         │
-                      │   WS2812B   │
-                      │             │
-        GND ────────► │ VSS         │
-                      └─────────────┘
+The ESP32-C6-DevKitC-1 includes a built-in RGB LED (WS2812B) on GPIO8.
+No external status LED is needed on the OPNhydro PCB.
 
-Note: WS2812B runs at 5V but data line works with 3.3V logic
-      Add 100Ω series resistor on data line for signal integrity
-```
+Use GPIO8 in firmware for status indication (do not route GPIO8 to any PCB pad).
 
 ---
 

@@ -1,4 +1,4 @@
-27445752118131868
+27454613516033934
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -7524,6 +7524,41 @@ TACT_PANA-EVQ
 0
 2
 2
+Coert-Vonk
+TERM BLK 2POS SCREW 3.5mm
+
+
+0
+2
+2
+Coert-Vonk
+TERM BLK 3POS SCREW 3.5mm
+
+
+0
+3
+3
+Coert-Vonk
+TERM BLK 4POS SCREW 3.5mm
+
+
+0
+4
+4
+Coert-Vonk
+TERM BLK 5POS SCREW 3.5mm
+
+
+0
+5
+5
+Coert-Vonk
+TERM BLK 6POS SCREW 3.5mm
+
+
+0
+6
+6
 Coert-Vonk
 TERM BLOCK 3POS 45DEG 5MM PCB 1862424
 
