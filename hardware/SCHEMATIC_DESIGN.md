@@ -8,8 +8,8 @@ This document describes the circuit design for the OPNhydroponics controller PCB
                                     ┌────────────────────────────────────────┐
                                     │              CONNECTORS                │
                                     │  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐       │
-                                    │  │ BNC │ │ BNC │ │ BNC │ │Float│       │
-                                    │  │ pH  │ │ EC  │ │ DO  │ │ SW  │       │
+                                    │  │ BNC │ │ BNC │ │     │ │Float│       │
+                                    │  │ pH  │ │ EC  │ │ RTD │ │ SW  │       │
                                     │  └──┬──┘ └──┬──┘ └──┬──┘ └──┬──┘       │
                                     └─────┼──────┼──────┼──────┼─────────────┘
                                           │      │      │      │
@@ -18,7 +18,7 @@ This document describes the circuit design for the OPNhydroponics controller PCB
 │  ┌─────────────┐    ┌─────────────────────────────────────────────────────┐  │
 │  │   POWER     │    │                    SENSORS                          │  │
 │  │             │    │  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐     │  │
-│  │ 12V ──►5V   │    │  │ EZO-pH │  │ EZO-EC │  │ EZO-DO │  │ BME280 │     │  │
+│  │ 12V ──►5V   │    │  │ EZO-pH │  │ EZO-EC │  │ EZO-RTD│  │ BME280 │     │  │
 │  │     ──►3.3V │    │  │  I2C   │  │  I2C   │  │  I2C   │  │  I2C   │     │  │
 │  │             │    │  └───┬────┘  └───┬────┘  └───┬────┘  └───┬────┘     │  │
 │  └──────┬──────┘    │      │           │           │           │          │  │
@@ -448,17 +448,43 @@ Note: Maximum total bus capacitance is 400pF for I2C standard mode.
       Keep traces short and avoid adding extra capacitance to data lines.
 ```
 
-### 3.2 Atlas Scientific EZO — Recommended Parts
+### 3.2 Atlas Scientific Circuits — EZO vs OEM
+
+Atlas Scientific offers two product lines for the same measurement circuits:
+
+| | **EZO** (carrier board) | **OEM** (bare die) |
+|---|---|---|
+| Form factor | Breakout board with pin headers | Direct PCB solder-on |
+| Dimensions | 13.97 × 20.16mm | 12 × 11mm |
+| Interface | UART (default) + I2C (manual switch required) | I2C / SMBus only — no mode switching |
+| Voltage | 3.3V–5V | 3.0V–5.5V |
+| Isolation needed | Yes (B0303S-1WR2 per circuit) | Yes (same requirement) |
+| Field-replaceable | Yes (unplugs from header) | No (soldered to PCB) |
+| Best for | Prototyping / v1 | Production / volume |
+
+**Decision: EZO carrier boards chosen for v1.** They are field-swappable when a circuit fails and require no custom PCB footprint. Switch to OEM for v2/production once the design is validated.
 
 **EZO Circuits:**
 
-| Circuit | Price | I2C Addr | Accuracy | Range |
-|---------|-------|----------|----------|-------|
-| **EZO-pH** | $45.99 | 0x63 | ±0.002 pH | 0.001–14.000 |
-| **EZO-EC** | $67.99 | 0x64 | ±2% | 0.07–500,000+ µS/cm |
-| **EZO-DO** | $53.99 | 0x61 | ±0.05 mg/L | 0.01–100+ mg/L |
+| Circuit | Mfr Part | DigiKey | Price (DigiKey) | I2C Addr | Accuracy | Range |
+|---------|----------|---------|-----------------|----------|----------|-------|
+| **EZO-pH** | EZO-PH | [16003108](https://www.digikey.com/en/products/detail/atlas-scientific/EZO-PH/16003108) | $51.27 | 0x63 | ±0.002 pH | 0.001–14.000 |
+| **EZO-EC** | EZO-EC | [16003000](https://www.digikey.com/en/products/detail/atlas-scientific/EZO-EC/16003000) | $82.25 | 0x64 | ±2% | 0.07–500,000+ µS/cm |
+| **EZO-RTD** | EZO-RTD | [16003139](https://www.digikey.com/en/products/detail/atlas-scientific/EZO-RTD/16003139) | $38.75 | 0x66 | ±(0.1 + 0.0017×°C) | -126–1254 °C |
 
-All circuits: 3.3V–5V, I2C or UART, 13.97 × 20.16mm
+All EZO circuits: 3.3V–5V, I2C or UART, 13.97 × 20.16mm
+
+**OEM Circuits (for future reference):**
+
+| Circuit | I2C Addr | Accuracy | Range |
+|---------|----------|----------|-------|
+| **pH-OEM** | 0x65 | ±0.002 pH | 0.001–14.000 |
+| **EC-OEM** | 0x64 | ±2% | 0.07–500,000+ µS/cm |
+| **RTD-OEM** | 0x68 | ±(0.1 + 0.0017×°C) | -126–1254 °C |
+
+All OEM circuits: 3.0V–5.5V, I2C (SMBus) only, 12 × 11mm
+
+> **I2C address differences:** pH OEM uses 0x65 (not 0x63) and RTD OEM uses 0x68 (not 0x66). Firmware must be updated if switching from EZO to OEM circuits.
 
 **Recommended Probes:**
 
@@ -466,7 +492,7 @@ All circuits: 3.3V–5V, I2C or UART, 13.97 × 20.16mm
 |-------|-------|-------|-------|
 | **pH** | Gen 3 Lab Grade (ENV-40-pH) | $84.99 | Double-junction Ag/AgCl — double-junction required for nutrient solution (resists junction clogging) |
 | **EC** | Conductivity K 1.0 (ENV-40-EC-K1.0) | $139.99 | K=1.0 covers hydroponics range 500–5000 µS/cm; no electrolyte depletion, calibrate at install only |
-| **DO** | Lab Grade DO (ENV-40-DOX) | $259.99 | Membrane replacement ~18 months; recalibrate ~annually; optional — see note below |
+| **Temp** | PT-1000 RTD Probe (ENV-40-TMP) | — | Compatible with EZO-RTD; 1-point calibration |
 
 **Kits (circuit + probe + calibration solutions + isolated carrier board):**
 
@@ -475,13 +501,34 @@ All circuits: 3.3V–5V, I2C or UART, 13.97 × 20.16mm
 | pH Kit | $159.99 |
 | EC K 1.0 Kit | $229.99 |
 
-> **DO is optional for most setups.** pH and EC are essential for every hydroponic system. DO monitoring adds value for DWC (root oxygenation is critical) but is less important for NFT or drip systems. The ENV-40-DOX at $260 is the most expensive single sensor — consider omitting for v1.
-
 > **EC probe K value:** K=1.0 is correct for hydroponics. The EZO-EC supports K=0.01–10.2 but the probe K value must suit your conductivity range. Do not substitute K=0.1 (ultra-pure water) or K=10 (seawater).
 
 > **pH probe storage:** Gen 3 double-junction probe must be stored wet in storage solution (not plain water). Mount BNC connectors so probes are easily removed when the system is idle.
 
-> **Isolated power required:** Each EZO circuit must be powered from an isolated 3.3V supply (B0303S-1WR2 DC-DC) to prevent cross-contamination between pH/EC/DO readings when probes share the same solution.
+> **Isolation:** EZO-pH and EZO-EC must each be powered from an isolated 3.3V supply (B0303S-1WR2 DC-DC) to prevent cross-contamination when probes share the same solution. EZO-RTD does **not** require isolation — connect directly to the 3.3V rail.
+
+### 3.2a Atlas Scientific Wi-Fi Hydroponics Kit — Considered, Not Selected
+
+The [Wi-Fi Hydroponics Kit](https://atlas-scientific.com/kits/wi-fi-hydroponics-kit/) and its [Bare-Bones variant](https://atlas-scientific.com/kits/bb-wi-fi-hkit/) were evaluated as an alternative to the custom sensor integration.
+
+**Full Kit ($569.99):** Enclosure + Adafruit HUZZAH32 + carrier board + EZO-pH + EZO-EC + EZO-RTD + probes + calibration solutions. Uploads to ThingSpeak over Wi-Fi.
+
+**Bare-Bones Kit ($169.99):** Enclosure + Adafruit HUZZAH32 + carrier board (3 isolated EZO slots, I2C only). EZO circuits and probes supplied separately.
+
+**Why not selected:**
+
+| Requirement | Wi-Fi Kit | OPNhydro |
+|-------------|-----------|----------|
+| Dosing pump control (5 pumps) | No | Yes |
+| ATO valve control | No | Yes |
+| DO sensor support | No | Yes |
+| Ultrasonic / float level sensing | No | Yes |
+| ESP32-C6 (Thread/Zigbee capable) | No (HUZZAH32) | Yes |
+| 12V power management | No | Yes |
+| Open hardware | No | Yes |
+| Custom firmware | Limited (ThingSpeak) | Full control |
+
+The kit is a self-contained monitoring appliance, not a controller platform. It covers only pH, EC, and temperature — no DO, no actuation, and no 12V rail. The OPNhydro custom PCB is required to meet all system requirements.
 
 **Total cost (circuits + probes):** ~$653 all three | ~$590 via kits | ~$394 pH + EC only (no DO)
 
