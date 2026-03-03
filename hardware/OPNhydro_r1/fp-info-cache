@@ -1,4 +1,4 @@
-27454613516033934
+27486523471083285
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -6769,6 +6769,13 @@ Coert-Vonk
 2
 2
 Coert-Vonk
+CAP ALUM 1000μF ±20 10V
+
+
+0
+2
+2
+Coert-Vonk
 CAP ALUM 2200μF ±20 25V RADIAL
 16*25
 Capacitor Polarised
@@ -6866,13 +6873,6 @@ CONN MALE 2X5 VERT 2.54mm JTAG
 0
 10
 10
-Coert-Vonk
-CONN MALE 4POS RA 2mm I2C JST S04B-PASK-2
-
-S04B-PASK-2 
-0
-4
-4
 Coert-Vonk
 CONN RCPT USB2.0 MINI B SMD
 
@@ -6993,13 +6993,6 @@ Adafruit Feather HUZZAH ESP8266{return}{return}ESP8266 WiFi development board wi
 30
 30
 Coert-Vonk
-EVAL EZO-PH
-<b>PIN HEADER</b>
-
-0
-6
-6
-Coert-Vonk
 EVAL LCD 20X4 I2C
 
 
@@ -7070,13 +7063,6 @@ HEADER MALE 1X2 VERT 2.54mm
 2
 2
 Coert-Vonk
-HEADER MALE 1X3 RA 2.5mm JST_S3B-XH-A
-
-
-0
-3
-3
-Coert-Vonk
 HEADER MALE 1X3 RA 2mm JST S03B-PASK-2
 
 S03B-PASK-2LFSN 
@@ -7098,6 +7084,27 @@ HEADER MALE 1X6 VERT 2.54mm
 6
 6
 Coert-Vonk
+HEADER MALE 3POS 2.5mm JST-XH
+
+
+0
+3
+3
+Coert-Vonk
+HEADER MALE 3POS 2mm JST-PA
+S3B-PH-K-S(LF)(SN)
+Connector
+0
+3
+3
+Coert-Vonk
+HEADER MALE 4POS 2mm JST-PA
+
+S4B-PH-K-SLFSN 
+0
+4
+4
+Coert-Vonk
 IC ISOLTR 2.5KV 2CH I2C 20SSOP ADM3260
 
 ADM3260ARSZ 
@@ -7111,6 +7118,13 @@ SOIC SO
 0
 20
 20
+Coert-Vonk
+IND 5.6µH 3.5A 40mΩ
+
+SDR0805-5R6ML 
+0
+2
+2
 Coert-Vonk
 IND 7.8µH 10A 20.5mΩ
 
@@ -7181,6 +7195,34 @@ LED BLOCK{return}{return}1 LED, Siemens
 0
 2
 2
+Coert-Vonk
+MEZZ EZO DO
+<b>PIN HEADER</b>
+
+0
+6
+6
+Coert-Vonk
+MEZZ EZO EC
+<b>PIN HEADER</b>
+
+0
+6
+6
+Coert-Vonk
+MEZZ EZO RTD
+<b>PIN HEADER</b>
+
+0
+6
+6
+Coert-Vonk
+MEZZ EZO pH
+<b>PIN HEADER</b>
+
+0
+6
+6
 Coert-Vonk
 MOLEX-1X3
 
@@ -7560,40 +7602,117 @@ TERM BLK 6POS SCREW 3.5mm
 6
 6
 Coert-Vonk
-TERM BLOCK 3POS 45DEG 5MM PCB 1862424
+TERM BLK HDR 2POS 3.81mm
+
+
+0
+2
+2
+Coert-Vonk
+TERM BLK HDR 2POS 5.08mm
+
+
+0
+2
+2
+Coert-Vonk
+TERM BLK HDR 3POS 3.81mm 1WIRE
+
+
+0
+3
+3
+Coert-Vonk
+TERM BLK HDR 3POS 5.08mm
+
+
+0
+3
+3
+Coert-Vonk
+TERM BLK HDR 4POS 3.81mm
+
+
+0
+4
+4
+Coert-Vonk
+TERM BLK HDR 4POS 5.08mm
+
+
+0
+4
+4
+Coert-Vonk
+TERM BLK HDR 6POS 3.81mm
 
 
 0
 6
 6
 Coert-Vonk
-TERM BLOCK 4POS 45° 5mm PCB - CONN_1862437
+TERM BLK HDR 6POS 5.08mm
+
+
+0
+6
+6
+Coert-Vonk
+TERM BLK PLUG 2POS 5.08mm
+
+
+0
+0
+0
+Coert-Vonk
+TERM BLK PLUG 3POS 5.08mm
+
+
+0
+0
+0
+Coert-Vonk
+TERM BLK PLUG 4POS 5.08mm
+
+
+0
+0
+0
+Coert-Vonk
+TERM BLK PLUG 6POS 3.81mm
+
+
+0
+0
+0
+Coert-Vonk
+TERM BLK PLUG 6POS 5.08mm
+
+
+0
+0
+0
+Coert-Vonk
+TERM BLK PUSH 2POS 45° 5mm
+
+
+0
+4
+4
+Coert-Vonk
+TERM BLK PUSH 3POS 45° 5mm
+
+
+0
+6
+6
+Coert-Vonk
+TERM BLK PUSH 4POS 45° 5mm RS485
 
 1862437 
 0
 8
 8
-Coert-Vonk
-TERM BLOCK HDR 1WIRE 3POS RA 3.81mm 1803280
-
-
-0
-3
-3
-Coert-Vonk
-TERM BLOCK HDR 2POS RA 3.81mm 1803277
-
-
-0
-2
-2
-Coert-Vonk
-TERM BLOCK HDR 4POS RA 3.81mm 1803293
-
-
-0
-4
-4
 Coert-Vonk
 TERM BLOCK PLUG 1WIRE 3POS 3.81mm 1803281
 
@@ -7615,6 +7734,13 @@ TERM BLOCK PLUG 4POS 3.81mm 1803594
 0
 0
 0
+Coert-Vonk
+TRANS NPN 40V 0.2A SOT23-3
+
+
+0
+3
+3
 Coert-Vonk
 U57X32
 LED{return}{return}rectangle, 5.7 x 3.2 mm

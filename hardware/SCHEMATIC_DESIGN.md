@@ -29,9 +29,9 @@ This document describes the circuit design for the OPNhydroponics controller PCB
 │         │           ┌──────────────────────┼──────────────────────────────┐  │
 │         │           │              ESP32-C6-WROOM-1                       │  │
 │         │           │  ┌────────────────────────────────────────────┐     │  │
-│         └──────────►│  │  GPIO4/5: I2C      GPIO2: (available)       │     │  │
-│                     │  │  GPIO9/3: Ultrasonic  GPIO0/1: Float SW    │     │  │
-│                     │  │  GPIO7: ATO  GPIO10/11/15/19/20: Pumps     │     │  │
+│         └──────────►│  │  GPIO4/5: I2C      GPIO2: ATO_VALVE       │     │  │
+│                     │  │  GPIO7/3: Ultrasonic  GPIO0/1: Float SW    │     │  │
+│                     │  │  GPIO6: EZO_PDIS  GPIO10/11/15/19: Pumps     │     │  │
 │                     │  │  GPIO8/17/21-23: Reserved                  │     │  │
 │                     │  └────────────────────────────────────────────┘     │  │
 │                     └──────────────────────┬──────────────────────────────┘  │
@@ -365,22 +365,23 @@ USB-C, boot/reset buttons, antenna, and power regulation are on the DevKit.
                     │                                     │
    FLOAT_LOW ──────┤ GPIO0  (input)                      │
    FLOAT_HIGH ──────┤ GPIO1  (input)                      │
-    (available) ────┤ GPIO2  (available — R30 DNP)              │
+    ATO_VALVE ──────┤ GPIO2  (output)              │
        US_ECHO ─────┤ GPIO3  (input)                      │
        I2C_SDA ─────┤ GPIO4  (bidirectional)              │
        I2C_SCL ─────┤ GPIO5  (output)                     │
+     EZO_PDIS ─────┤ GPIO6  (output)                     │
                     │                                     │
-     ATO_VALVE ─────┤ GPIO7  (output)                     │
+      US_TRIG ──────┤ GPIO7  (output)                     │
                     │                                     │
      (reserved) ────┤ GPIO8  (RGB LED on DevKit)          │
-       US_TRIG ─────┤ GPIO9  (output, strapping pin)      │
+   (available) ────┤ GPIO9  (strapping pin — 45kΩ pullup)      │
      PUMP_MAIN ─────┤ GPIO10 (output)                     │
-     PUMP_PH_UP ────┤ GPIO11 (output)                     │
+     PUMP_PH_DN ────┤ GPIO11 (output)                     │
                     │                                     │
-     PUMP_PH_DN ────┤ GPIO15 (output)                     │
+     PUMP_NUT_A ────┤ GPIO15 (output, strapping pin)      │
      (reserved) ────┤ GPIO17 (CP2102 UART TX)             │
-    PUMP_NUT_A ─────┤ GPIO19 (output)                     │
-    PUMP_NUT_B ─────┤ GPIO20 (output)                     │
+    PUMP_NUT_B ─────┤ GPIO19 (output)                     │
+   (available) ─────┤ GPIO20 (available)                  │
                     │                                     │
      (reserved) ────┤ GPIO21 (future RS-485)              │
      (reserved) ────┤ GPIO22 (future RS-485)              │
@@ -391,22 +392,67 @@ USB-C, boot/reset buttons, antenna, and power regulation are on the DevKit.
 Signal Type Key:
   (input)         = Input only
   (output)        = Output only
-  (bidirectional) = Bidirectional (I2C, 1-Wire)
-
-Reserved Pins:
-- GPIO8:  DevKit RGB LED (do not use)
-- GPIO12/13: USB D+/D- for Serial/JTAG/Upload (do not use)
-- GPIO17: CP2102 UART TX (do not use)
-- GPIO21-23: Reserved for future RS-485 expansion
-
-Strapping Pins:
-- GPIO9:  Strapping pin with internal ~45kΩ pullup. Used for US_TRIG (non-critical
-          output initialized after boot). Compatible with boot requirements.
-- GPIO15: Strapping pin with weak pulldown. Used for PUMP_PH_DN. The 10kΩ pulldown
-          in the MOSFET driver will disable ESP32 ROM boot messages (cosmetic only).
+  (bidirectional) = Bidirectional (I2C)
 ```
 
-### 2.2 Carrier PCB Headers
+### 2.2 Dual-Function Pin Considerations
+
+#### GPIO8 — On-board RGB LED (reserved)
+The DevKitC drives an on-board WS2812B RGB LED from GPIO8 through a series resistor.
+Do not connect an external load to GPIO8 on the carrier PCB.
+The LED is available for firmware status indication (boot state, error codes, etc.).
+
+#### GPIO9 — Internal ~45kΩ pull-up (strapping pin, currently available)
+GPIO9 is sampled at boot to select the boot mode:
+- **HIGH** at boot (pull-up default) → normal application boot
+- **LOW** at boot → enter ROM serial download mode
+
+The internal pull-up holds GPIO9 HIGH in the absence of external drive, so normal boot
+always succeeds when the pin is left unconnected. If GPIO9 is used in a future revision,
+ensure any external load cannot pull it LOW during the boot window (~100ms after power-on
+/ reset de-assertion).
+
+#### GPIO12 / GPIO13 — USB D− / D+ (Serial logging, code upload, JTAG)
+GPIO12 and GPIO13 are the USB D− and D+ lines on the ESP32-C6. The DevKitC connects
+these directly to the USB-C connector for three simultaneous use cases:
+- **Serial logging** via USB CDC (replaces UART0 for debug output)
+- **Firmware upload** via esptool over USB CDC (no external programmer needed)
+- **JTAG debugging** via USB (OpenOCD — no separate JTAG adapter needed)
+
+Do not route GPIO12/GPIO13 to the carrier PCB. They are occupied by the DevKit USB
+interface and must remain exclusive to the USB-C connector.
+
+#### GPIO15 — MOSFET driver 10kΩ pull-down (strapping pin, PUMP_NUT_A)
+GPIO15 is a strapping pin. OPNhydro uses GPIO15 for PUMP_NUT_A; the MOSFET gate driver
+circuit includes a 10kΩ pull-down resistor to GND. At boot, the ESP32-C6 samples GPIO15:
+- The 10kΩ pull-down holds GPIO15 LOW → **ESP32 ROM boot messages are suppressed** on
+  the UART0 TX pin. This is cosmetic only and has no effect on application operation.
+- The pull-down also ensures the MOSFET gate is LOW at power-on, preventing the pump
+  from activating before firmware runs. This is the correct fail-safe behaviour.
+
+#### GPIO17 — CP2102N UART TX (reserved, do not connect)
+GPIO17 is actively driven by the CP2102N USB-to-UART bridge TX output on the DevKitC.
+Do not route GPIO17 to the carrier PCB. Any external connection would fight the CP2102N
+output and could damage the bridge IC or the ESP32-C6 input buffer.
+
+#### GPIO21–23 — Future RS-485 expansion (reserved, unconnected)
+These three pins are reserved for a future RS-485 sensor bus (e.g., Modbus RTU):
+- GPIO21: RS-485 TX / DE (driver enable)
+- GPIO22: RS-485 RX
+- GPIO23: RE (receiver enable, optional)
+
+No footprint or pull resistors are required on the current PCB revision. Leave unconnected.
+
+#### ~RST — Reset input
+- **Leave floating** — internally held HIGH by the chip; normal operation
+- **Optional external reset button**: normally-open push-button from ~RST to GND on the
+  carrier PCB; add 100nF bypass capacitor from ~RST to GND to suppress glitches
+- **Do not drive HIGH externally** — the pin is already pulled HIGH internally
+- A LOW pulse ≥1µs resets the device; the DevKitC on-board RST button does the same
+
+---
+
+### 2.3 Carrier PCB Headers
 
 ```
 Use 2×20 female headers (2.54mm pitch) on carrier PCB.
@@ -545,16 +591,29 @@ Default addresses:
 - BME280:  0x76
 
 EZO-pH and EZO-EC (isolated via ADM3260):
-┌──────────────────────────────────────┐
-│  EZO-pH (MEZZ3) or EZO-EC (MEZZ2)   │
-│                                      │
-│   VCC ◄──── 3.3V_ISO (from ADM3260) │
-│   GND ◄──── GND_ISO  (from ADM3260) │
-│   SDA ◄───► I2C SDA  (via ADM3260)  │
-│   SCL ◄──── I2C SCL  (via ADM3260)  │
-│   PRB ◄──── BNC panel-mount         │
+
+                                         GPIO6 (EZO_PDIS)
+                                              │
+┌──────────────────────────────────────┐   ┌──┴───────────────────────┐
+│  EZO-pH (MEZZ3) or EZO-EC (MEZZ2)   │   │  ADM3260 (U3 or U4)      │
+│                                      │   │                          │
+│   VCC ◄──── 3.3V_ISO ───────────────┼───┤ isoPower out   VCC1◄─3.3V│
+│   GND ◄──── GND_ISO  ───────────────┼───┤ GND_ISO        PDIS◄─────┘
+│   SDA ◄───► I2C SDA  ───────────────┼───┤ SDA2 ◄──► SDA1           │
+│   SCL ◄──── I2C SCL  ───────────────┼───┤ SCL2 ◄─── SCL1           │
+│   PRB ◄──── BNC panel-mount         │   └──────────────────────────┘
 │                                      │
 └──────────────────────────────────────┘
+
+GPIO6 (EZO_PDIS) — active-HIGH power disable, shared by U3 (pH) and U4 (EC):
+  GPIO6 LOW  → isoPower enabled  → EZO-pH and EZO-EC powered normally
+  GPIO6 HIGH → isoPower disabled → EZO-pH and EZO-EC de-energised
+
+Use cases:
+  - Fault recovery: pulse HIGH 100ms then LOW; wait ≥1.2s before sending I2C commands
+  - Power saving: de-energise both circuits when readings are not needed (~30mA saved)
+
+EZO-RTD (MEZZ1) has no ADM3260 and is not controlled by EZO_PDIS.
 
 EZO-RTD (MEZZ1, no isolation):
 ┌──────────────────────────────────────┐
@@ -571,7 +630,8 @@ EZO-RTD (MEZZ1, no isolation):
 The ADM3260 provides both I2C signal isolation (2.5kV) and isolated DC power
 via integrated isoPower — up to 150mW output. No external DC-DC converter needed.
 
-3.3V ──► ADM3260 (U3 or U4) ──► 3.3V_ISO + isolated SDA/SCL ──► EZO VCC/SDA/SCL
+3.3V ──► ADM3260 (U3 or U4) VCC1 ──► isoPower ──► 3.3V_ISO ──► EZO VCC/SDA/SCL
+GPIO6 ──► ADM3260 PDIS (U3 and U4 tied together) — HIGH disables isoPower
 ```
 
 ### 3.4 Switching EZO Circuits to I2C Mode (Manual, No UART Required)
@@ -887,7 +947,7 @@ I2C transaction for any calibration command:
 > **Design decision:** The 1-Wire DS18B20 has been removed from the build.
 > Water temperature is measured by the EZO-RTD circuit (MEZZ1, I2C address 0x66).
 > Ambient temperature is measured by the BME280 (I2C).
-> GPIO2 is now available for future use. R30 (4.7kΩ 1-Wire pullup) is DNP.
+> GPIO2 is now used for ATO_VALVE (output). R30 (4.7kΩ 1-Wire pullup) is DNP.
 >
 > The technical documentation below is retained for reference only.
 
@@ -1202,14 +1262,14 @@ HC-SR04+ / RCWL-1601 Ultrasonic Distance Sensor Connection:
                                       ┌────┴────┐
     GND rail ───────────────────────► │ Sensor  │
                                       │         │
-    GPIO9 ──────────────────────────► │ TRIG    │ (3.3V logic)
+    GPIO7 ──────────────────────────► │ TRIG    │ (3.3V logic)
     (US_TRIG)                         │         │
     GPIO3 ◄─────────────────────────  │ ECHO    │ (3.3V logic output)
     (US_ECHO)                         └─────────┘
 
 
 Signal Flow:
-1. ESP32 GPIO9 sends 10µs pulse to TRIG (3.3V HIGH)
+1. ESP32 GPIO7 sends 10µs pulse to TRIG (3.3V HIGH)
 2. Sensor emits 8-cycle 40kHz ultrasonic burst
 3. ECHO pin goes HIGH (3.3V) while waiting for reflection
 4. ESP32 GPIO3 measures ECHO pulse width directly — no voltage divider needed
@@ -1266,7 +1326,7 @@ Step 4: Distance Calculation
 ```
 ┌──────────────────────┐
 │ Pin 1: VCC (3.3V)    │ ◄── To 3.3V rail
-│ Pin 2: TRIG          │ ◄── To GPIO9 (US_TRIG)
+│ Pin 2: TRIG          │ ◄── To GPIO7 (US_TRIG)
 │ Pin 3: ECHO          │ ◄── Direct to GPIO3 (US_ECHO)
 │ Pin 4: GND           │ ◄── To system GND
 └──────────────────────┘
@@ -1310,7 +1370,7 @@ Measurement Cycle:
 
 ```c
 // GPIO definitions
-#define US_TRIG_GPIO    9
+#define US_TRIG_GPIO    7
 #define US_ECHO_GPIO    3
 
 // Trigger measurement
@@ -1411,11 +1471,11 @@ Example:
     Ultrasonic reads 10cm → Water level = 50 - 10 = 40cm (full)
 ```
 
-### 5.8 Why GPIO9 and GPIO3 Were Selected
+### 5.8 Why GPIO7 and GPIO3 Were Selected
 
-**GPIO9 (US_TRIG) - Output:**
+**GPIO7 (US_TRIG) - Output:*
 - Can be used as output
-- **NOTE: GPIO9 is a strapping pin with internal ~45kΩ pullup**
+- GPIO7 is a standard GPIO — no strapping pin concerns
 - Safe to use for TRIG because:
   - TRIG is an output (we drive it)
   - Non-critical timing (10µs pulse sent AFTER boot)
@@ -1734,13 +1794,13 @@ GPIO1 (HIGH = water high) ───── R_base ──── Base  ┐
                                 4.7kΩ              │ MMBT3904 NPN
                                          Emitter ──┴── GND
                                          Collector ──────────────────────────► Q8 Gate
-                                                              (also driven by GPIO7 through 100Ω)
+                                                              (also driven by GPIO2 through 100Ω)
 ```
 
 **Operation:**
 | Condition | GPIO state | NPN | MOSFET gate | Load |
 |-----------|-----------|-----|-------------|------|
-| Water OK / ATO OK | LOW (0) | OFF | Controlled by GPIO10/GPIO7 | Normal operation |
+| Water OK / ATO OK | LOW (0) | OFF | Controlled by GPIO10/GPIO2 | Normal operation |
 | Water LOW / Water HIGH | HIGH (1) | ON (saturated) | Pulled to ≈GND | OFF (hardware) |
 
 **Component selection:**
@@ -2174,6 +2234,13 @@ Pump Side Connection Options:
 
 ### 7.2 12V Dosing Pump Drivers (×4)
 
+> **Design decision — Nutrient A and B on separate channels:**
+> Part A and Part B nutrients are almost always dosed simultaneously at a 1:1 ratio,
+> so combining them on one MOSFET was considered. It was rejected because peristaltic
+> pump heads wear unevenly over time; separate channels allow independent mL/s
+> calibration in firmware without mechanical adjustment. Cost delta: ~$0.10.
+> See ARCHITECTURE.md §8 for full rationale.
+
 ```
 Same circuit topology as main pump, but using smaller AO3400A MOSFETs.
 All on 12V rail. Use separate MOSFET for each dosing pump.
@@ -2220,10 +2287,10 @@ D1: 1N5819 (1A Schottky flyback diode, SOD-123)
 - Lower current rating sufficient for dosing pumps
 
 GPIO Assignments:
-GPIO11 ──► Q2: Pump pH Up
-GPIO15 ──► Q3: Pump pH Down
-GPIO19 ──► Q4: Pump Nutrient A
-GPIO20 ──► Q5: Pump Nutrient B
+GPIO11 ──► Q2: Pump pH Down
+GPIO15 ──► Q3: Pump Nutrient A
+GPIO19 ──► Q4: Pump Nutrient B
+GPIO20 ──► (available)
 
 **Dosing Pump Specifications:**
 
@@ -2322,7 +2389,7 @@ Uses normally-closed (NC) solenoid valve for fail-safe operation.
         │
         ├────────────────────────────────── Gate (Q8)
         │                                       │
-GPIO7 ──┘                                      R1
+GPIO2 ──┘                                      R1
                                               10kΩ (pull-down)
                                                │
                                               ─┴─
@@ -2336,7 +2403,7 @@ GPIO1 ──── R_base (4.7kΩ) ──── Base ┐
                           Collector ─────────────────────────► Gate (Q8)
 
 When GPIO1 HIGH (water high): Q10 saturates → Gate clamped to ≤0.2V → Q8 OFF → valve closes (hardware)
-When GPIO1 LOW  (water OK):   Q10 off      → Gate driven by GPIO7 normally
+When GPIO1 LOW  (water OK):   Q10 off      → Gate driven by GPIO2 normally
 ```
 
 Q8: AO3400A (Logic-level N-MOSFET, SOT-23)

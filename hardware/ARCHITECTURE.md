@@ -99,7 +99,7 @@ Uses existing ultrasonic sensor for level detection with a normally-closed solen
 
 The controller operates independently when Home Assistant is unavailable:
 - Local pH control: Once daily at 10:00 AM (avoids temperature-induced pH fluctuations)
-  - Doses pH Down when above target (pH Up pump is optional)
+  - Doses pH Down only — pH creep is always upward; no pH Up pump fitted (see §9)
 - Local EC control: Doses nutrients when EC drops below threshold (every 10 min)
 - Safety interlocks: Float switch protection always active
 - ATO: Requires HA for user confirmation (manual override via physical button possible)
@@ -148,7 +148,7 @@ alerting, but the hardware path acts regardless of software state.
 **FLOAT_HIGH (GPIO1) → ATO Valve (Q8) hardware cutoff:**
 - FLOAT_HIGH is wired with pull-DOWN + switch-to-3.3V (reversed from FLOAT_LOW)
   so that GPIO1 HIGH = water at/above HIGH mark = consistent active-HIGH logic
-- GPIO1 drives NPN transistor base; NPN collector tied to Q8 gate
+- GPIO2 drives NPN transistor base; NPN collector tied to Q8 gate
 - When GPIO1 HIGH: NPN saturates → Q8 gate pulled to ≈GND → ATO valve closes (hardware)
 - When GPIO1 LOW: NPN off → Q8 gate controlled by GPIO7 normally
 
@@ -156,25 +156,107 @@ alerting, but the hardware path acts regardless of software state.
 - 1× MMBT3904 NPN transistor, SOT-23 (~$0.05)
 - 1× 4.7kΩ base resistor, 0805 (already in BOM)
 
+### 8. Nutrient A and B on Separate MOSFET Channels
+
+**Decision: PUMP_NUT_A and PUMP_NUT_B each have a dedicated MOSFET driver.**
+
+Two-part nutrients (Part A: calcium/iron; Part B: phosphate/sulphate) are kept separate in
+concentrate to prevent precipitation, but are always dosed at a 1:1 ratio in normal
+operation — same GPIO pulse, same duration, at the same time.
+
+Combining both pump motors on a single MOSFET was considered and rejected:
+
+| Factor | Combined | Separate (chosen) |
+|--------|----------|-------------------|
+| GPIO cost | Saves 1 pin (GPIO19 free) | Uses GPIO15 + GPIO19 |
+| BOM cost | Save ~$0.10 (1× AO3400A) | Keep as-is |
+| Ratio flexibility | Locked 1:1 | Any ratio in firmware |
+| Pump wear compensation | Not possible | Each pump calibrated independently |
+| Fault isolation | One failure disables both | Identify which pump failed |
+
+**Rationale:** peristaltic pump heads wear at different rates. After 6–12 months the
+mL/s of Pump A and Pump B may diverge. With separate channels the firmware calibrates
+each independently; with a shared channel the ratio can only be corrected mechanically
+(e.g., different tube bore). The cost delta is one AO3400A (~$0.10). GPIO20 was already
+free from a prior pin reassignment, so there is no GPIO pressure to consolidate.
+
+**Future field change:** if combining is ever desired, no PCB revision is required —
+simply tie the two PUMP_NUT connector outputs together externally. The MOSFET on the
+unused channel is left unpopulated (DNP).
+
+### 9. pH Chemistry and Dosing Sequence
+
+#### Why pH always drifts upward
+
+In an active NFT or DWC system, pH creeps upward between doses due to two mechanisms:
+
+1. **Plant nutrient uptake**: roots preferentially absorb nitrate (NO₃⁻) and release
+   bicarbonate (HCO₃⁻) in exchange, alkalising the solution over hours.
+2. **CO₂ offgassing**: carbonic acid (H₂CO₃) from dissolved CO₂ escapes the reservoir,
+   removing a natural acid buffer and allowing pH to rise.
+
+This upward drift is the dominant long-term trend in a healthy system.
+
+#### Why there is no PUMP_PH_UP
+
+Because pH reliably creeps upward, the system only ever needs to dose *down*.
+A pH Up pump would fire only if pH somehow fell below target — an unusual condition
+that indicates a problem (wrong nutrient formula, excessive CO₂ injection, contamination)
+rather than normal operation. **PUMP_PH_UP has been omitted from the design.**
+Only PUMP_PH_DN (GPIO11, Q2) is fitted.
+
+If pH falls unexpectedly low, the correct response is manual investigation, not
+automated correction with an unmonitored acid reserve.
+
+#### How nutrient dosing interacts with pH
+
+Nutrient concentrates (especially Part B: phosphate and sulphate salts) are acidic.
+Adding nutrients causes a transient pH *drop* of ~0.1–0.3 units per typical dose,
+after which pH recovers and resumes its upward creep.
+
+This has two implications for the control loop:
+
+1. **Sequence matters**: EC correction must complete and the reservoir must mix before
+   pH correction fires. Correcting pH immediately after an EC dose would be chasing a
+   transient reading, not the steady-state pH.
+2. **Nutrients reduce pH correction demand**: after a large EC dose, pH Down may not
+   be required at all for that cycle.
+
+#### Required firmware dosing sequence
+
+```
+1. Measure EC
+2. If EC < target → dose PUMP_NUT_A + PUMP_NUT_B simultaneously
+3. Wait for mixing (circulation pump running, e.g. 5–10 min)
+4. Re-measure pH
+5. If pH > target → dose PUMP_PH_DN
+6. Wait for mixing (e.g. 2–5 min)
+7. Re-measure pH — repeat step 5 if still high (avoid overdosing)
+8. Log readings
+```
+
+Never run EC and pH corrections in the same step. Always re-measure after mixing.
+
 ## Pin Assignment
 
 | GPIO | Signal | Direction | Notes |
 |------|--------|-----------|-------|
 | 0 | FLOAT_LOW | Input | Flow float switch |
 | 1 | FLOAT_HIGH | Input | High-level float switch |
-| 2 | (available) | — | GPIO2 free — was 1-Wire; R30 4.7kΩ DNP |
+| 2 | ATO_VALVE | Output | ATO solenoid valve via MOSFET Q8; R30 (4.7kΩ) DNP |
 | 3 | US_ECHO | Input | Ultrasonic sensor echo |
 | 4 | I2C_SDA | Bidirectional | I2C bus (4.7kΩ pullup) |
 | 5 | I2C_SCL | Output | I2C bus (4.7kΩ pullup) |
-| 7 | ATO_VALVE | Output | ATO solenoid valve via MOSFET Q8 |
+| 6 | EZO_PDIS | Output | ADM3260 isoPower disable — active HIGH; shared by U3 (pH) & U4 (EC) |
+| 7 | US_TRIG | Output | Ultrasonic sensor trigger |
 | 8 | (RGB LED) | — | DevKit on-board RGB LED — do not use |
-| 9 | US_TRIG | Output | Ultrasonic sensor trigger (strapping pin, internal 45kΩ pullup) |
+| 9 | (available) | — | Strapping pin — internal 45kΩ pullup; leave undriven at boot |
 | 10 | PUMP_MAIN | Output | Main circulation pump via MOSFET Q1 (IRLR2905) |
-| 11 | PUMP_PH_UP | Output | pH Up dosing pump via MOSFET Q2 |
-| 15 | PUMP_PH_DN | Output | pH Down dosing pump via MOSFET Q3 (strapping pin) |
+| 11 | PUMP_PH_DN | Output | pH Down dosing pump via MOSFET Q2 |
+| 15 | PUMP_NUT_A | Output | Nutrient A dosing pump via MOSFET Q3 (strapping pin — 10kΩ pulldown disables ROM msgs) |
 | 17 | (CP2102 TX) | — | Reserved — CP2102 UART TX on DevKit |
-| 19 | PUMP_NUT_A | Output | Nutrient A dosing pump via MOSFET Q4 |
-| 20 | PUMP_NUT_B | Output | Nutrient B dosing pump via MOSFET Q5 |
+| 19 | PUMP_NUT_B | Output | Nutrient B dosing pump via MOSFET Q4 |
+| 20 | (available) | — | Free GPIO |
 | 21 | (reserved) | — | Future RS-485 |
 | 22 | (reserved) | — | Future RS-485 |
 | 23 | (reserved) | — | Future RS-485 |
