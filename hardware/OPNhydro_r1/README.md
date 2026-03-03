@@ -65,7 +65,7 @@ hydroponics-controller.kicad_sch (Root)
 ├── power-regulators.kicad_sch   # Buck converter (12V→5V), LDO (5V→3.3V)
 ├── devkit-headers.kicad_sch     # ESP32-C6-DevKitC-1 pin headers
 ├── sensors-i2c.kicad_sch        # I2C bus, EZO connectors, BME280, BH1750
-├── sensors-other.kicad_sch      # 1-Wire, ultrasonic, float switches
+├── sensors-other.kicad_sch      # Ultrasonic, float switches
 ├── pump-drivers.kicad_sch       # MOSFET drivers for 6 outputs
 └── status-led.kicad_sch         # WS2812B, optional OLED
 ```
@@ -98,13 +98,15 @@ hydroponics-controller.kicad_sch (Root)
 | 1 | +12V |
 | 2 | GND |
 
-### J2 - Main Pump (3.5mm Pluggable Terminal)
+### J2 - Main Pump (5.08mm Pluggable Terminal — Phoenix MSTB 2.5/2-ST-5.08)
 | Pin | Signal |
 |-----|--------|
 | 1 | PUMP+ (12V switched) |
 | 2 | PUMP- (GND) |
 
-### J3-J6 - Dosing Pumps (3.5mm Pluggable Terminal each)
+> 5.08mm pitch — physically incompatible with 3.5mm dosing connectors.
+
+### J3-J6 - Dosing Pumps (3.5mm Pluggable Terminal each — Phoenix MC 1.5/2-ST-3.5)
 | Pin | Signal |
 |-----|--------|
 | 1 | PUMP+ (12V switched) |
@@ -117,8 +119,7 @@ hydroponics-controller.kicad_sch (Root)
 | 2 | VALVE- (GND) |
 
 ### J8-J10 - BNC Probe Connectors
-- Panel-mount BNC female for pH, EC, DO probes
-- Atlas probes use male SMA with included SMA-to-BNC adapter
+- Panel-mount BNC female for pH, EC, RTD probes
 - Connect to respective EZO circuit PRB input
 
 ### J11-J14 - I2C Sensors (JST-PH 4-pin, Qwiic compatible)
@@ -128,13 +129,6 @@ hydroponics-controller.kicad_sch (Root)
 | 2 | 3.3V | Red |
 | 3 | SDA | Blue |
 | 4 | SCL | Yellow |
-
-### J15 - 1-Wire (JST-PH 3-pin)
-| Pin | Signal |
-|-----|--------|
-| 1 | GND |
-| 2 | DATA |
-| 3 | 3.3V |
 
 ### J16 - Ultrasonic Sensor (JST-XH 4-pin)
 | Pin | Signal |

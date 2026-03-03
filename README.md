@@ -4,7 +4,7 @@ A fully autonomous, data-rich hydroponics automation system with precision contr
 
 ## Features
 
-- **Full Water Quality Monitoring**: pH, EC/TDS, dissolved oxygen (optional), temperature
+- **Full Water Quality Monitoring**: pH, EC/TDS, temperature
 - **Environmental Monitoring**: Air temp/humidity, light intensity (lux/PPFD), VPD
 - **Automatic Dosing**: pH up (optional)/down, two-part nutrients (A/B)
 - **Automatic Top-Off (ATO)**: Ultrasonic level sensing with user-approved filling
@@ -37,7 +37,7 @@ OPNhydroponics/
 |----------|-----------|
 | System Type | NFT (Nutrient Film Technique), 20-80 plants |
 | Controller | ESP32-C6-DevKitC-1-N8 (WiFi 6, Thread, USB-C) |
-| Sensors | Atlas Scientific EZO (pH, EC, DO) + environmental |
+| Sensors | Atlas Scientific EZO (pH, EC, RTD temperature) + environmental |
 | Actuators | 1× 12V main pump, 4× 12V dosing pumps, 1× 12V ATO valve |
 | Integration | Home Assistant via ESPHome, standalone capable |
 
@@ -47,8 +47,7 @@ OPNhydroponics/
 |--------|-----------|---------|
 | Atlas EZO-pH | I2C | Water pH monitoring |
 | Atlas EZO-EC | I2C | Nutrient concentration (EC/TDS) |
-| Atlas EZO-DO | I2C | Dissolved oxygen (optional) |
-| DS18B20 | 1-Wire | Water temperature |
+| Atlas EZO-RTD | I2C | Water temperature (PT-1000 probe) |
 | HC-SR04 | GPIO | Water level (ultrasonic) |
 | BME280 | I2C | Air temp, humidity, pressure |
 | BH1750 | I2C | Light intensity (lux) |
@@ -73,8 +72,7 @@ See [hardware/BOM.md](hardware/BOM.md) for the complete parts list.
 
 **Minimum for testing:**
 - ESP32-C6-DevKitC-1-N8 development board
-- Atlas Scientific EZO-pH kit (or DFRobot for budget option)
-- DS18B20 waterproof temperature probe
+- Atlas Scientific EZO-pH circuit + probe
 - Peristaltic dosing pump (12V)
 
 ### 2. ESPHome Configuration
@@ -164,14 +162,12 @@ See [hardware/ARCHITECTURE.md](hardware/ARCHITECTURE.md) for complete GPIO mappi
 |----------|------|
 | Microcontroller | $8 |
 | Power Management | $15 |
-| Water Quality Sensors (Atlas) | $350 |
+| Water Quality Sensors (Atlas) | ~$183 (pH + EC + RTD circuits + probes) |
 | Environmental Sensors | $20 |
 | Actuators | $75 |
 | PCB + Connectors | $40 |
 | Enclosure | $25 |
-| **Total** | **~$530** |
-
-Budget option with DFRobot sensors: ~$280
+| **Total** | **~$363** |
 
 ## Contributing
 

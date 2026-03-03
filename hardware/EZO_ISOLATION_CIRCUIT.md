@@ -22,7 +22,7 @@
 > digital isolator channels (3 forward + 1 reverse) which are not suitable for bidirectional I2C.
 > The selected ADM3260 provides proper bidirectional I2C isolation.
 
-This document describes the galvanic isolation circuit for connecting Atlas Scientific EZO sensor boards (pH, EC, DO) to the ESP32-C6 via I2C.
+This document describes the galvanic isolation circuit for connecting Atlas Scientific EZO sensor boards (pH, EC, RTD) to the ESP32-C6 via I2C.
 
 ## What are EZO Mezzanine Boards?
 
@@ -114,7 +114,7 @@ Without isolation, multiple probes in the same solution will create galvanic cel
 
 ## Design Overview
 
-Each EZO circuit (pH, EC, DO) requires:
+Each isolated EZO circuit (pH, EC) requires:
 1. **Isolated DC-DC converter** - Provides isolated 3.3V power
 2. **I2C isolator** (optional) - Isolates I2C communication
 3. **BNC connector** - For probe connection
@@ -2593,7 +2593,7 @@ OSH Park (oshpark.com):
    // Expected results:
    // EZO-pH: 0x63
    // EZO-EC: 0x64
-   // EZO-DO: 0x61
+   // EZO-RTD: 0x66
    ```
 
 3. Read Device Info:

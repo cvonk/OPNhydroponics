@@ -6,7 +6,7 @@
 |----------|------|
 | Microcontroller | $8 |
 | Power Management | $15 |
-| Water Quality Sensors (Atlas Scientific) | $285 |
+| Water Quality Sensors (Atlas Scientific) | ~$397 |
 | Environmental Sensors | $20 |
 | Actuators (pumps + ATO valve) | $75 |
 | Connectors & PCB | $40 |
@@ -29,7 +29,7 @@ Note: Using DevKit instead of bare module - includes USB-C, antenna, and boot/re
 
 | Qty | Part | Description | Notes | Price |
 |-----|------|-------------|-------|-------|
-| 1 | MP1584EN module | 12V→5V buck, 3A | Logic power | $2 |
+| 1 | TPS62933DRLR | 12V→5V synchronous buck, 3A, SOT583 | Logic power | — |
 | 1 | AMS1117-3.3 | 5V→3.3V LDO, 1A | ESP32 power | $0.50 |
 | 1 | B5819W | Schottky diode, reverse protection | Or SS54 | $0.20 |
 | 1 | SI2301 | P-MOSFET, reverse polarity | SOT-23 | $0.30 |
@@ -47,14 +47,14 @@ Note: Using DevKit instead of bare module - includes USB-C, antenna, and boot/re
 
 | Qty | Part | Description | Source | Price |
 |-----|------|-------------|--------|-------|
-| 1 | Atlas Scientific EZO-pH | pH circuit, I2C | Atlas Scientific | $42 |
-| 1 | Atlas Scientific EZO-EC | Conductivity circuit, I2C | Atlas Scientific | $42 |
-| 1 | Atlas Scientific EZO-DO | Dissolved oxygen circuit, I2C (optional) | Atlas Scientific | $48 |
-| 1 | Atlas pH Probe | Lab grade, BNC, ±0.1 pH | Atlas Scientific | $65 |
-| 1 | Atlas EC Probe K=1.0 | Conductivity probe, ±2% | Atlas Scientific | $45 |
-| 1 | Atlas DO Probe | Galvanic DO probe (optional) | Atlas Scientific | $108 |
+| 1 | Atlas Scientific EZO-pH (EZO-PH) | pH circuit, I2C 0x63 | DigiKey [16003108](https://www.digikey.com/en/products/detail/atlas-scientific/EZO-PH/16003108) | $51.27 |
+| 1 | Atlas Scientific EZO-EC (EZO-EC) | Conductivity circuit, I2C 0x64 | DigiKey [16003000](https://www.digikey.com/en/products/detail/atlas-scientific/EZO-EC/16003000) | $82.25 |
+| 1 | Atlas Scientific EZO-RTD (EZO-RTD) | Temperature circuit, I2C 0x66 | DigiKey [16003139](https://www.digikey.com/en/products/detail/atlas-scientific/EZO-RTD/16003139) | $38.75 |
+| 1 | Atlas pH Probe Gen 3 (ENV-40-pH) | Lab grade, double-junction, BNC | Atlas Scientific | $84.99 |
+| 1 | Atlas EC Probe K=1.0 (ENV-40-EC-K1.0) | Conductivity probe, ±2%, BNC | Atlas Scientific | $139.99 |
+| 1 | Atlas PT-1000 RTD Probe (ENV-40-TMP) | Temperature probe, BNC | Atlas Scientific | — |
 
-**Water Quality Subtotal: ~$350** (or ~$195 without optional DO)
+**Water Quality Subtotal: ~$397**
 
 Note: Atlas Scientific probes include calibration data and have better longevity than budget alternatives.
 
@@ -62,7 +62,6 @@ Note: Atlas Scientific probes include calibration data and have better longevity
 
 | Qty | Part | Description | Source | Price |
 |-----|------|-------------|--------|-------|
-| 2 | DS18B20 waterproof | Water temperature probe | Amazon | $3 ea |
 | 1 | BME280 module | Temp/humidity/pressure | Amazon/AliExpress | $4 |
 | 1 | BH1750 module | Light intensity (lux) | Amazon/AliExpress | $2 |
 | 1 | HC-SR04 | Ultrasonic distance | Amazon/AliExpress | $2 |
@@ -115,10 +114,12 @@ Recommended:
 
 | Qty | Part | Description | Notes | Price |
 |-----|------|-------------|-------|-------|
-| 6 | IRLZ44N | N-MOSFET, logic level | TO-220 (1 main + 4 dosing + 1 ATO) | $0.50 ea |
-| 6 | 10kΩ resistor | Gate pull-down | 0805 | $0.05 ea |
-| 6 | 100Ω resistor | Gate series | 0805 | $0.05 ea |
-| 6 | 1N5819 | Flyback diode | DO-214 | $0.10 ea |
+| 1 | IRLR2905 | N-MOSFET 55V/42A, DPAK | Main pump driver (Q1) | — |
+| 7 | AO3400A | N-MOSFET 30V/5.7A, SOT-23 | Dosing pumps + ATO valve (Q2–Q8) | — |
+| 2 | MMBT3904 | NPN transistor, SOT-23 | Float switch hardware cutoffs (Q9, Q10) | $0.05 ea |
+| 8 | 10kΩ resistor | Gate pull-down | 0805 | $0.05 ea |
+| 8 | 100Ω resistor | Gate series | 0805 | $0.05 ea |
+| 2 | 4.7kΩ resistor | NPN base resistor (Q9, Q10) | 0805 | $0.05 ea |
 
 **Subtotal: ~$6**
 
@@ -129,11 +130,12 @@ Recommended:
 | Qty | Part | Description | Notes | Price |
 |-----|------|-------------|-------|-------|
 | 2 | Female header 1×20 | 2.54mm pitch | DevKit mounting | $0.50 ea |
-| 6 | Pluggable terminal 2P | 3.5mm pitch | Pumps + ATO valve (header + plug) | $0.50 ea |
+| 1 | Phoenix MSTB 2.5/2-ST-5.08 | 5.08mm pluggable terminal | Main pump (header + plug) | $0.50 |
+| 5 | Phoenix MC 1.5/2-ST-3.5 | 3.5mm pluggable terminal | Dosing pumps ×4 + ATO valve (header + plug) | $0.40 ea |
 | 1 | Pluggable terminal 2P | 3.5mm pitch | 12V power input (header + plug) | $0.50 |
-| 3 | BNC panel mount female | For probes | pH/EC/DO (use included SMA-to-BNC adapters) | $2 ea |
+| 3 | BNC panel mount female | For probes | pH/EC/RTD | $2 ea |
 | 4 | JST-PH 4P | I2C sensors | Qwiic compat | $0.20 ea |
-| 2 | JST-PH 3P | 1-Wire, float | | $0.15 ea |
+| 2 | JST-XH 2P | Float switch connectors (FLOAT_LOW + FLOAT_HIGH) | | $0.15 ea |
 | 1 | JST-XH 4P | Ultrasonic | | $0.20 |
 | 1 | 4-pin header | OLED display | 2.54mm | $0.20 |
 
@@ -200,7 +202,7 @@ Recommended:
 3. **Probe Lifespan**:
    - pH probes: 1-2 years typical
    - EC probes: 2-5 years
-   - DO membranes: 6-12 months
+   - RTD probes: 5+ years (no consumable elements)
 
 4. **Tubing**: Use only food-grade silicone for dosing pumps. Cheap tubing degrades with nutrients/acids.
 

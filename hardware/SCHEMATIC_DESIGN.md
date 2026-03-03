@@ -29,7 +29,7 @@ This document describes the circuit design for the OPNhydroponics controller PCB
 │         │           ┌──────────────────────┼──────────────────────────────┐  │
 │         │           │              ESP32-C6-WROOM-1                       │  │
 │         │           │  ┌────────────────────────────────────────────┐     │  │
-│         └──────────►│  │  GPIO4/5: I2C      GPIO2: 1-Wire           │     │  │
+│         └──────────►│  │  GPIO4/5: I2C      GPIO2: (available)       │     │  │
 │                     │  │  GPIO9/3: Ultrasonic  GPIO0/1: Float SW    │     │  │
 │                     │  │  GPIO7: ATO  GPIO10/11/15/19/20: Pumps     │     │  │
 │                     │  │  GPIO8/17/21-23: Reserved                  │     │  │
@@ -363,9 +363,9 @@ USB-C, boot/reset buttons, antenna, and power regulation are on the DevKit.
            3.3V ────┤ 3V3                            GND  ├──── GND
             5V ─────┤ 5V (from USB or external)           │
                     │                                     │
-   FLOAT_FLOW ──────┤ GPIO0  (input)                      │
+   FLOAT_LOW ──────┤ GPIO0  (input)                      │
    FLOAT_HIGH ──────┤ GPIO1  (input)                      │
-      ONE_WIRE ─────┤ GPIO2  (bidirectional)              │
+    (available) ────┤ GPIO2  (available — R30 DNP)              │
        US_ECHO ─────┤ GPIO3  (input)                      │
        I2C_SDA ─────┤ GPIO4  (bidirectional)              │
        I2C_SCL ─────┤ GPIO5  (output)                     │
@@ -458,7 +458,7 @@ Atlas Scientific offers two product lines for the same measurement circuits:
 | Dimensions | 13.97 × 20.16mm | 12 × 11mm |
 | Interface | UART (default) + I2C (manual switch required) | I2C / SMBus only — no mode switching |
 | Voltage | 3.3V–5V | 3.0V–5.5V |
-| Isolation needed | Yes (B0303S-1WR2 per circuit) | Yes (same requirement) |
+| Isolation needed | Yes (ADM3260 per circuit — integrated isoPower) | Yes (same requirement) |
 | Field-replaceable | Yes (unplugs from header) | No (soldered to PCB) |
 | Best for | Prototyping / v1 | Production / volume |
 
@@ -505,7 +505,7 @@ All OEM circuits: 3.0V–5.5V, I2C (SMBus) only, 12 × 11mm
 
 > **pH probe storage:** Gen 3 double-junction probe must be stored wet in storage solution (not plain water). Mount BNC connectors so probes are easily removed when the system is idle.
 
-> **Isolation:** EZO-pH and EZO-EC must each be powered from an isolated 3.3V supply (B0303S-1WR2 DC-DC) to prevent cross-contamination when probes share the same solution. EZO-RTD does **not** require isolation — connect directly to the 3.3V rail.
+> **Isolation:** EZO-pH (MEZZ3) and EZO-EC (MEZZ2) each have a dedicated ADM3260 (U3 and U4 respectively) which provides both I2C signal isolation and isolated DC power via integrated isoPower (up to 150mW, 3.15–5.25V output) — no separate DC-DC converter needed. EZO-RTD (MEZZ1) does **not** require isolation — connect directly to the 3.3V rail.
 
 ### 3.2a Atlas Scientific Wi-Fi Hydroponics Kit — Considered, Not Selected
 
@@ -539,26 +539,39 @@ The kit is a self-contained monitoring appliance, not a controller platform. It 
 ```
 Atlas Scientific EZO circuits use standard I2C.
 Default addresses:
-- EZO-pH:  0x63
-- EZO-EC:  0x64
-- EZO-DO:  0x61 (may need address change to avoid conflict)
+- EZO-pH:  0x63  (MEZZ3, isolated via U3 ADM3260)
+- EZO-EC:  0x64  (MEZZ2, isolated via U4 ADM3260)
+- EZO-RTD: 0x66  (MEZZ1, no isolation required)
 - BME280:  0x76
-- BH1750:  0x23
 
-Each EZO circuit:
+EZO-pH and EZO-EC (isolated via ADM3260):
 ┌──────────────────────────────────────┐
-│  EZO-pH (or EC, DO)                  │
+│  EZO-pH (MEZZ3) or EZO-EC (MEZZ2)   │
 │                                      │
-│   VCC ◄──── 3.3V (isolated)          │
-│   GND ◄──── GND (isolated)           │
-│   SDA ◄───► I2C SDA                  │
-│   SCL ◄──── I2C SCL                  │
-│   PRB ◄──── BNC panel-mount (probe uses SMA-to-BNC adapter) │
+│   VCC ◄──── 3.3V_ISO (from ADM3260) │
+│   GND ◄──── GND_ISO  (from ADM3260) │
+│   SDA ◄───► I2C SDA  (via ADM3260)  │
+│   SCL ◄──── I2C SCL  (via ADM3260)  │
+│   PRB ◄──── BNC panel-mount         │
 │                                      │
 └──────────────────────────────────────┘
 
-For probe isolation, power each EZO from isolated DC-DC:
-3.3V ──► [B0303S-1WR2] ──► 3.3V_ISO ──► EZO VCC
+EZO-RTD (MEZZ1, no isolation):
+┌──────────────────────────────────────┐
+│  EZO-RTD (MEZZ1)                     │
+│                                      │
+│   VCC ◄──── 3.3V                    │
+│   GND ◄──── GND                     │
+│   SDA ◄───► I2C SDA                 │
+│   SCL ◄──── I2C SCL                 │
+│   PRB ◄──── BNC panel-mount         │
+│                                      │
+└──────────────────────────────────────┘
+
+The ADM3260 provides both I2C signal isolation (2.5kV) and isolated DC power
+via integrated isoPower — up to 150mW output. No external DC-DC converter needed.
+
+3.3V ──► ADM3260 (U3 or U4) ──► 3.3V_ISO + isolated SDA/SCL ──► EZO VCC/SDA/SCL
 ```
 
 ### 3.4 Switching EZO Circuits to I2C Mode (Manual, No UART Required)
@@ -697,7 +710,7 @@ Ordering Information:
 ```
 
 **Connector comparison:**
-- 1-wire (DS18B20): JST-XH 3-pin (2.5mm pitch) - different pin count!
+- Float switches: JST-XH 2-pin (2.5mm pitch)
 - Ultrasonic (HC-SR04+ / RCWL-1601): JST-XH 4-pin (2.5mm pitch) - smaller pitch!
 - I2C sensors: Phoenix Contact 4-pin (3.5mm pitch) ✅
 
@@ -869,7 +882,14 @@ I2C transaction for any calibration command:
 
 ---
 
-## 4. Temperature Sensor (1-Wire)
+## 4. Temperature Sensor (1-Wire) — ⛔ NOT POPULATED
+
+> **Design decision:** The 1-Wire DS18B20 has been removed from the build.
+> Water temperature is measured by the EZO-RTD circuit (MEZZ1, I2C address 0x66).
+> Ambient temperature is measured by the BME280 (I2C).
+> GPIO2 is now available for future use. R30 (4.7kΩ 1-Wire pullup) is DNP.
+>
+> The technical documentation below is retained for reference only.
 
 ### 4.1 Basic Circuit
 
@@ -1621,33 +1641,37 @@ Wire:         2' (61cm), 2-conductor, 22 AWG
 Float orient: Hinge UP = normally open; Hinge DOWN = normally closed
 ```
 
-**Wire as NC (hinge pointing down):**
-```
-Float arm UP   (water at/above switch) → magnet actuates reed → NC CLOSED → GPIO LOW  (0)
-Float arm DOWN (water below switch)    → magnet away from reed → NC OPEN  → GPIO HIGH (1)
-```
+**Both switches are mounted NC (hinge pointing DOWN).** Wiring to the PCB differs
+between the two so that both GPIO signals are active-HIGH on their cutoff condition
+(see section 6.3 for circuit details and section 6.5 for full mounting guide):
 
-**Mounting positions:**
 ```
-FLOAT_FLOW  (GPIO0): Hole at LOW water mark  — GPIO HIGH = low-water alarm, stop pumps
-FLOAT_HIGH  (GPIO1): Hole at HIGH water mark — GPIO HIGH = water above cutoff?
+FLOAT_LOW  (GPIO0) — hole at LOW water mark:
+  Float arm UP   (water ≥ LOW mark):  NC CLOSED → switch pulls to GND → GPIO0 LOW  (water OK)
+  Float arm DOWN (water < LOW mark):  NC OPEN   → pull-up → GPIO0 HIGH (alarm — stop pump)
+  PCB wiring: switch wire → GND terminal
 
- ⚠ Note for FLOAT_HIGH with NC and hinge-down:
-   GPIO HIGH when float arm DOWN = water BELOW the switch (normal during filling)
-   GPIO LOW  when float arm UP   = water HAS REACHED the cutoff level → stop ATO
-
- Firmware must treat GPIO1 LOW as the ATO stop condition (inverse of FLOAT_FLOW).
- Alternatively, mount FLOAT_HIGH with hinge UP (NO) and treat GPIO1 HIGH as stop.
+FLOAT_HIGH  (GPIO1) — hole at HIGH water mark:
+  Float arm UP   (water ≥ HIGH mark): NC CLOSED → switch pulls to 3.3V → GPIO1 HIGH (stop ATO)
+  Float arm DOWN (water < HIGH mark): NC OPEN   → pull-down → GPIO1 LOW  (ATO OK)
+  PCB wiring: switch wire → 3.3V terminal
 ```
 
-> **Alternative:** Madison M8000 (1/8" NPT vertical NC, PP, 30VA) if side-wall mounting is not possible (e.g., opaque rigid reservoir with no accessible side). Same GPIO circuit applies.
+> **Alternative:** Madison M8000 (1/8" NPT vertical NC, PP, 30VA) if side-wall mounting
+> is not possible (e.g., opaque rigid reservoir with no accessible side). Same circuit applies.
 
 ---
 
 ### 6.3 Circuit
 
+The two float switches use opposite pull directions so that both GPIO signals are
+**active-HIGH when their cutoff condition is triggered** — consistent logic for both
+software and the hardware NPN cutoff transistors (see section 6.4).
+
 ```
 Float Switch - FLOW (low level alarm, GPIO0):
+Pull-UP to 3.3V, switch-to-GND, NC (hinge down)
+
         3.3V
          │
         R1
@@ -1661,20 +1685,220 @@ GPIO0 ───┼──────────────► LH25 FLOW (NC, h
         ─┴─
         GND
 
+Float arm UP   (water at/above LOW mark): NC CLOSED → GPIO0 = LOW  (0) — water OK
+Float arm DOWN (water below LOW mark):    NC OPEN   → GPIO0 = HIGH (1) — ALARM, stop pump
+
 Float Switch - HIGH (high level cutoff, GPIO1):
+Pull-DOWN to GND, switch-to-3.3V, NC (hinge down)
+⚠ Reversed from FLOAT_LOW so GPIO1 is also active-HIGH on cutoff.
+
         3.3V
          │
-        R1
-       10k (pullup)
+        LH25 HIGH (NC, hinge down)
          │
-GPIO1 ───┼──────────────► LH25 HIGH (NC, hinge down) ──► GND
+GPIO1 ───┼──────────────────────────────────────────────────
+         │
+        R1
+       10k (pulldown)
          │
         C1
        100nF (debounce)
          │
         ─┴─
         GND
+
+Float arm UP   (water at/above HIGH mark): NC CLOSES to 3.3V → GPIO1 = HIGH (1) — STOP ATO
+Float arm DOWN (water below HIGH mark):    NC OPEN → pull-down → GPIO1 = LOW  (0) — ATO OK
 ```
+
+---
+
+### 6.4 Hardware Cutoff via NPN Transistors
+
+Each float switch drives a small NPN transistor that directly clamps the respective
+MOSFET gate to GND when the cutoff condition fires. This is independent of firmware —
+the pump and ATO valve shut down in hardware even if the MCU is hung or misbehaving.
+
+```
+FLOAT_LOW hardware cutoff (water-low → main pump off):
+
+GPIO0 (HIGH = water low) ────── R_base ──── Base  ┐
+                                4.7kΩ              │ MMBT3904 NPN
+                                         Emitter ──┴── GND
+                                         Collector ──────────────────────────► Q1 Gate
+                                                              (also driven by GPIO10 through 100Ω)
+
+FLOAT_HIGH hardware cutoff (water-high → ATO valve closes):
+
+GPIO1 (HIGH = water high) ───── R_base ──── Base  ┐
+                                4.7kΩ              │ MMBT3904 NPN
+                                         Emitter ──┴── GND
+                                         Collector ──────────────────────────► Q8 Gate
+                                                              (also driven by GPIO7 through 100Ω)
+```
+
+**Operation:**
+| Condition | GPIO state | NPN | MOSFET gate | Load |
+|-----------|-----------|-----|-------------|------|
+| Water OK / ATO OK | LOW (0) | OFF | Controlled by GPIO10/GPIO7 | Normal operation |
+| Water LOW / Water HIGH | HIGH (1) | ON (saturated) | Pulled to ≈GND | OFF (hardware) |
+
+**Component selection:**
+- MMBT3904 (SOT-23): β ≥ 100, I_C(max) = 200mA, V_CE(sat) ≈ 0.2V
+- Base resistor: 4.7kΩ → I_B = (3.3V − 0.7V) / 4.7kΩ = 0.55mA
+- Worst-case I_C when GPIO10/GPIO7 HIGH and NPN ON: (3.3V − 0.2V) / 100Ω = 31mA
+- Saturation overdrive: 0.55mA / 0.31mA = 1.8× → fully saturated ✓
+- Gate clamped to ≤ 0.2V, well below VGS(th) = 1.5V of both Q1 and Q8
+
+**Schematic note:** Two additional MMBT3904 transistors (Q9, Q10) and two 4.7kΩ
+resistors are required on the PCB. The 4.7kΩ value is already present in the BOM (R30).
+
+---
+
+### 6.5 Normally Open vs Normally Closed — Full Explanation
+
+A float switch contains a **reed switch** — a sealed glass capsule with two metal contacts
+that close when a magnet is brought near. The float arm holds a permanent magnet that moves
+closer to or farther from the reed switch as the water level changes.
+
+**Normally Closed (NC)** — contacts CLOSED in the resting state:
+
+```
+                ╔════════════╗
+                ║  Reed      ║
+                ║  Switch    ║  ← magnet near = contacts CLOSED
+    ┌───┤≈────╗ ║            ║
+    │  float  ╚═╗  ──────── ║
+    │   arm     ║  contacts  ║
+    └───────────╚════════════╝
+
+  Float UP (in water):  Magnet near reed → contacts CLOSED  → circuit CONDUCTING
+  Float DOWN (in air):  Magnet away      → contacts OPEN    → circuit BROKEN
+```
+
+**Normally Open (NO)** — contacts OPEN in the resting state:
+
+```
+  Same hardware as NC — just flip the float arm orientation on the LH25.
+  Float UP (in water):  Magnet near reed → contacts OPEN     → circuit BROKEN
+  Float DOWN (in air):  Magnet away      → contacts CLOSED   → circuit CONDUCTING
+```
+
+For the **Flowline LH25**, NO/NC is selected by the float hinge orientation:
+
+```
+  Hinge DOWN (arm hangs down by gravity in air):
+    → In air: arm DOWN, magnet away  = NC resting state = CLOSED
+    → In water: arm UP, magnet near  = NC actuated    = OPEN? ← confusing!
+```
+
+Wait — the LH25 spec states it the other way. Here is the correct behaviour:
+
+```
+  LH25, Hinge DOWN = NC wiring:
+    Float arm UP  (water present at switch level) → reed CLOSES → contacts CONDUCTING
+    Float arm DOWN (water below switch level)     → reed OPENS  → contacts BROKEN
+
+  LH25, Hinge UP = NO wiring:
+    Float arm UP  (water present at switch level) → reed OPENS  → contacts BROKEN
+    Float arm DOWN (water below switch level)     → reed CLOSES → contacts CONDUCTING
+```
+
+**OPNhydro uses NC (hinge DOWN) for both switches.**
+When water rises to the switch, the float arm lifts → reed closes → circuit makes.
+When water drops below the switch, the float arm falls → reed opens → circuit breaks.
+
+---
+
+### 6.6 Mounting the Float Switches
+
+**Tools required:**
+- Step drill bit or hole saw: 18mm (23/32") for 1/2" NPT tap drill
+- 1/2" NPT tap + tap handle
+- Adjustable wrench or pipe wrench
+- PTFE thread tape
+
+**Step 1 — Determine water levels:**
+```
+       ┌──────────────────────────┐
+       │                          │   ← tank top / lid
+       │       FLOAT_HIGH         │ ← HIGH mark: ATO stops here
+       │          ●               │   (e.g., 25mm below brim)
+       │                          │
+       │  [operating range]       │
+       │                          │
+       │       FLOAT_LOW         │ ← LOW mark: pump stops here
+       │          ●               │   (e.g., 50mm above bottom)
+       │                          │
+       └──────────────────────────┘
+```
+
+- **FLOAT_LOW (low mark):** Set high enough that the pump is never run dry.
+  Typically 50–75mm above the reservoir bottom.
+- **FLOAT_HIGH (high mark):** Set low enough to prevent overflow.
+  Typically 25–50mm below the top of the reservoir.
+- The vertical distance between them defines the ATO working range.
+
+**Step 2 — Drill the side-wall holes:**
+1. Mark the two hole positions on the reservoir side wall.
+2. Use an 18mm (23/32") step bit or hole saw to drill each hole.
+3. Tap each hole to 1/2" NPT using the NPT tap.
+   - Apply cutting oil if drilling into HDPE or polypropylene.
+   - Use a slow, steady hand — plastic cracks if rushed.
+4. Deburr the inside edge with a countersink or knife.
+
+**Step 3 — Install the switches:**
+1. Wrap 3–4 turns of PTFE tape on the LH25 NPT threads (clockwise wrap).
+2. Thread into the hole by hand until snug.
+3. Orient the float hinge **pointing DOWN** (NC mode) — the hinge end is marked on the body.
+4. Use a wrench to tighten 1–2 additional turns past hand-tight. Do not overtighten.
+5. The float arm should point **toward the inside of the reservoir** and swing freely.
+
+```
+   Outside of reservoir wall:     Inside of reservoir:
+
+     ┌────────────────┐             ┌─────────────────┐
+     │   NPT threads  │             │                  │
+     │ LLLLL LH25 body│═════════════│  ←arm swings     │
+     │  (hinge DOWN)  │             │   freely here     │
+     └────────────────┘             └─────────────────┘
+           ↑
+      Wire exits here
+      (2', 22 AWG,
+       2-conductor)
+```
+
+**Step 4 — Route and connect the wires:**
+
+Both switches come with 2' (61cm) bare wire leads. Terminate each wire with a
+JST-XH 2-pin crimp or strip and clamp into a 2-pin screw terminal on the PCB.
+
+| Switch | Wire to PCB pin 1 | Wire to PCB pin 2 | Notes |
+|--------|-------------------|-------------------|-------|
+| FLOAT_LOW (GPIO0) | GND | GND | Both wires to GND — polarity doesn't matter for dry reed |
+| FLOAT_HIGH (GPIO1) | 3.3V | 3.3V | Both wires to 3.3V |
+
+Wait — a reed switch is a 2-terminal device with no polarity. The PCB has a pull-up or
+pull-down resistor and the switch creates the signal. The actual connection is:
+
+```
+FLOAT_LOW (GPIO0):
+  PCB header Pin 1: → GPIO0 signal node (already has pull-up to 3.3V on PCB)
+  PCB header Pin 2: → GND
+  Wire one switch lead to each pin. No polarity.
+
+FLOAT_HIGH (GPIO1):
+  PCB header Pin 1: → GPIO1 signal node (already has pull-down to GND on PCB)
+  PCB header Pin 2: → 3.3V
+  Wire one switch lead to each pin. No polarity.
+```
+
+**Step 5 — Test before filling:**
+1. With the reservoir empty, both float arms should hang DOWN.
+   - GPIO0 should read HIGH (water low alarm, expected)
+   - GPIO1 should read LOW (ATO OK, expected)
+2. Lift FLOAT_LOW arm by hand — GPIO0 should go LOW (arm up = water OK).
+3. Lift FLOAT_HIGH arm by hand — GPIO1 should go HIGH (arm up = water at HIGH mark → ATO stops).
 
 ---
 
@@ -1721,14 +1945,23 @@ All pumps and the ATO valve use the same 12V rail and identical driver circuits.
        R2             ─┴─
       100Ω            GND
         │
-        │
-GPIO10 ─┼────────┬─────────────────► Gate Drive
-                 │
-                R1
-               10k
-                 │
-                ─┴─
-                GND
+        ├────────────────────────────────── Gate (Q1)
+        │                                       │
+GPIO10 ─┘                                      R1
+                                              10kΩ (pull-down)
+                                               │
+                                              ─┴─
+                                              GND
+
+Hardware cutoff — FLOAT_LOW (water-low) overrides GPIO10:
+
+GPIO0 ──── R_base (4.7kΩ) ──── Base ┐
+                                     │ Q9: MMBT3904 NPN
+                          Emitter ───┴─── GND
+                          Collector ─────────────────────────► Gate (Q1)
+
+When GPIO0 HIGH (water low): Q9 saturates → Gate clamped to ≤0.2V → Q1 OFF (hardware)
+When GPIO0 LOW  (water OK):  Q9 off      → Gate driven by GPIO10 normally
 
 C2: 100nF / 50V ceramic (X7R, 0805)
 - Local bypass capacitor for switching transients
@@ -2048,18 +2281,16 @@ Recommended 12V DC peristaltic pumps for precise nutrient dosing:
 **Dosing Pump Connector (×4):**
 
 ```
-Phoenix Contact MSTB 2.5/2-ST-5.08 (2-position screw terminal) ×4
+Phoenix Contact MC 1.5/2-ST-3.5 (2-position pluggable screw terminal) ×4
+- Pitch: 3.5mm — physically incompatible with 5.08mm main pump connector
 - One terminal block per pump (Q2-Q5)
 - Wire size: 24-18 AWG (for 300mA @ 12V)
+- PCB header: MC 1.5/2-G-3.5
 - Label silkscreen: "pH UP", "pH DN", "NUT A", "NUT B"
 
 Pin Assignment (each pump):
 Pin 1: 12V_PUMP_n (switched via Q2-Q5)
 Pin 2: GND
-
-Alternative Connector:
-- Phoenix Contact 1792887 (pluggable, 2-pos, 5.08mm pitch)
-- Allows easy pump replacement without rewiring
 ```
 ```
 
@@ -2080,7 +2311,7 @@ Uses normally-closed (NC) solenoid valve for fail-safe operation.
                         │        (NC, 500mA)
                ┌────────┴───────┐   │
                │     DRAIN      │   │
-        ┌──────┤  Q6            ├───┴── VALVE-
+        ┌──────┤  Q8            ├───┴── VALVE-
         │      │  AO3400A       │
         │      │  (SOT-23)      │
         │      └───────┬────────┘
@@ -2089,16 +2320,26 @@ Uses normally-closed (NC) solenoid valve for fail-safe operation.
        R2             ─┴─
       100Ω            GND
         │
-        │
-GPIO7 ──┼────────┬─────────────────► Gate Drive
-                 │
-                R1
-               10k
-                 │
-                ─┴─
-                GND
+        ├────────────────────────────────── Gate (Q8)
+        │                                       │
+GPIO7 ──┘                                      R1
+                                              10kΩ (pull-down)
+                                               │
+                                              ─┴─
+                                              GND
 
-Q6: AO3400A (Logic-level N-MOSFET, SOT-23)
+Hardware cutoff — FLOAT_HIGH (water-high) overrides GPIO7:
+
+GPIO1 ──── R_base (4.7kΩ) ──── Base ┐
+                                     │ Q10: MMBT3904 NPN
+                          Emitter ───┴─── GND
+                          Collector ─────────────────────────► Gate (Q8)
+
+When GPIO1 HIGH (water high): Q10 saturates → Gate clamped to ≤0.2V → Q8 OFF → valve closes (hardware)
+When GPIO1 LOW  (water OK):   Q10 off      → Gate driven by GPIO7 normally
+```
+
+Q8: AO3400A (Logic-level N-MOSFET, SOT-23)
 - VDS = 30V, ID = 5.8A
 - RDS(on) = 33mΩ @ VGS=4.5V
 - Handles 500mA solenoid load with margin
@@ -2150,12 +2391,14 @@ D1: 1N5819 (1A Schottky flyback diode, SOD-123)
 **ATO Valve Connector:**
 
 ```
-Phoenix Contact MSTB 2.5/2-ST-5.08 (2-position screw terminal)
+Phoenix Contact MC 1.5/2-ST-3.5 (2-position pluggable screw terminal)
+- Pitch: 3.5mm — same family as dosing pump connectors
+- PCB header: MC 1.5/2-G-3.5
 - Wire size: 24-18 AWG (for 500mA @ 12V)
 - Label silkscreen: "ATO VALVE" or "WATER IN"
 
 Pin Assignment:
-Pin 1: 12V_VALVE (switched via Q6)
+Pin 1: 12V_VALVE (switched via Q8)
 Pin 2: GND
 
 Valve Side Connection:
@@ -2167,7 +2410,7 @@ Valve Side Connection:
 **Safety Notes:**
 - ✅ NC valve ensures no water flow if controller loses power
 - ✅ Float switch (GPIO1 - FLOAT_HIGH) provides hardware backup cutoff
-- ✅ Float switch (GPIO0 - FLOAT_FLOW) provides low-level alarm
+- ✅ Float switch (GPIO0 - FLOAT_LOW) provides low-level alarm
 - ✅ Software timeout prevents flooding if level sensor fails
 - ✅ Recommend inline manual shutoff valve for maintenance
 - ✅ Consider water leak sensor near reservoir for additional protection
@@ -2228,7 +2471,8 @@ Valve Side Connection:
 | **Nutrient A Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ BPT tubing, premium build |
 | **Nutrient B Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ BPT tubing, premium build |
 | **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403, 1/4" QC, 12V 400mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
-| **Power Connectors** | 6 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $3 | 2-position, 5.08mm pitch |
+| **Main Pump Connector** | 1 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $0.50 | 5.08mm pitch — incompatible with dosing |
+| **Dosing + ATO Connectors** | 5 | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | $0.40 | $2 | 3.5mm pitch — incompatible with main pump |
 | | | | | **Subtotal:** | **$110** | ✅ Recommended configuration |
 
 **Why these components were selected:**
@@ -2258,7 +2502,8 @@ Valve Side Connection:
 | **Main Circulation Pump** | 1 | Brushless | AUBIG DC40-1250, 510L/H, 12V 1.2A | $12-18 | $15 | ✅ PWM capable, proven reliable |
 | **Dosing Pumps (×4)** | 4 | Peristaltic | Generic 50-100mL/min, 12V 300mA | $8-15 | $40 | Budget option, silicone tubing |
 | **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403, 1/4" QC, 12V 400mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
-| **Power Connectors** | 6 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $3 | 2-position, 5.08mm pitch |
+| **Main Pump Connector** | 1 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $0.50 | 5.08mm pitch — incompatible with dosing |
+| **Dosing + ATO Connectors** | 5 | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | $0.40 | $2 | 3.5mm pitch — incompatible with main pump |
 | | | | | **Subtotal:** | **$70** | Minimum viable, lower reliability |
 
 **Note:** Generic pumps save $40-60 but may require more frequent tubing replacement and have higher failure rates.
@@ -2270,7 +2515,8 @@ Valve Side Connection:
 | **Main Circulation Pump** | 1 | Brushless | AUBIG DC40-1250, 510L/H, 12V 1.2A | $12-18 | $15 | ✅ PWM capable, proven reliable |
 | **Dosing Pumps (×4)** | 4 | Peristaltic | Kamoer KDS-FE-2-S17B | $30-50 | $160 | Stepper motor, ±1% accuracy |
 | **ATO Solenoid Valve** | 1 | NC Solenoid | U.S. Solid 1/4" NC Brass/Viton, 12V ~1.17A | $20-30 | $25 | IP65, direct-acting — note: 14W coil, update power budget |
-| **Power Connectors** | 6 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $3 | 2-position, 5.08mm pitch |
+| **Main Pump Connector** | 1 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $0.50 | 5.08mm pitch — incompatible with dosing |
+| **Dosing + ATO Connectors** | 5 | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | $0.40 | $2 | 3.5mm pitch — incompatible with main pump |
 | **12V Power Supply** | 1 | Regulated | Mean Well LRS-50-12 (50W, 4.2A) | $15-20 | $18 | Low ripple for brushless motor |
 | | | | | **Subtotal:** | **$221** | Professional/commercial grade |
 
@@ -2282,19 +2528,24 @@ Valve Side Connection:
 | OR: **Dual AUBIG Pumps** | 2 | Brushless | AUBIG DC40-1250 (parallel) | $12-18 | $30 | 1000L/H total, redundant |
 | **Dosing Pumps (×4)** | 4 | Peristaltic | Generic 50-100mL/min | $8-15 | $48 | Budget peristaltic |
 | **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403, 1/4" QC, 12V 400mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
-| **Power Connectors** | 6 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $3 | 2-position, 5.08mm pitch |
+| **Main Pump Connector** | 1 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $0.50 | 5.08mm pitch — incompatible with dosing |
+| **Dosing + ATO Connectors** | 5 | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | $0.40 | $2 | 3.5mm pitch — incompatible with main pump |
 | | | | | **Subtotal:** | **$83-113** | Budget, higher flow rate |
 
 **Connector Summary:**
 
-| Location | Connector | Part Number | Pins | Purpose |
-|----------|-----------|-------------|------|---------|
-| J? (Main Pump) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | 2 | 12V switched + GND |
-| J? (pH Up) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | 2 | 12V switched + GND |
-| J? (pH Down) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | 2 | 12V switched + GND |
-| J? (Nutrient A) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | 2 | 12V switched + GND |
-| J? (Nutrient B) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | 2 | 12V switched + GND |
-| J? (ATO Valve) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | 2 | 12V switched + GND |
+| Location | Connector | Part Number | Pitch | Pins | Purpose |
+|----------|-----------|-------------|-------|------|---------|
+| J? (Main Pump) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | **5.08mm** | 2 | 12V switched + GND |
+| J? (pH Up) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 12V switched + GND |
+| J? (pH Down) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 12V switched + GND |
+| J? (Nutrient A) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 12V switched + GND |
+| J? (Nutrient B) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 12V switched + GND |
+| J? (ATO Valve) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 12V switched + GND |
+
+> **Misconnection prevention:** The 5.08mm main pump plug physically cannot be inserted
+> into a 3.5mm dosing pump header, and vice versa. No silkscreen label required for safety,
+> though labels are still recommended for ease of installation.
 
 **Wiring Specifications:**
 
