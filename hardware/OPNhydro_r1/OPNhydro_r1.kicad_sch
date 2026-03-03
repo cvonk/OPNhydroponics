@@ -5894,10 +5894,14 @@
 			(embedded_fonts no)
 		)
 		(symbol "Coert-Vonk:PROBE ATLAS ENV-40-EC-K1.0"
+			(pin_numbers
+				(hide yes)
+			)
 			(pin_names
 				(offset 1.016)
+				(hide yes)
 			)
-			(exclude_from_sim no)
+			(exclude_from_sim yes)
 			(in_bom yes)
 			(on_board no)
 			(property "Reference" "PB"
@@ -6000,18 +6004,6 @@
 					)
 				)
 				(arc
-					(start -2.286 -8.89)
-					(mid -3.9024 -8.2204)
-					(end -4.572 -6.604)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(arc
 					(start 0.0002 -6.6042)
 					(mid -0.6694 -8.2206)
 					(end -2.2858 -8.8902)
@@ -6024,9 +6016,33 @@
 					)
 				)
 				(arc
+					(start -2.286 -8.89)
+					(mid -3.9024 -8.2204)
+					(end -4.572 -6.604)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
 					(start -0.5277 -1.524)
 					(mid -1.4565 -0.7184)
 					(end -1.5437 0.508)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start 1.016 1.27)
+					(mid 1.6164 0.1796)
+					(end 1.27 -1.016)
 					(stroke
 						(width 0)
 						(type default)
@@ -6070,18 +6086,6 @@
 						(type none)
 					)
 				)
-				(arc
-					(start 1.016 1.27)
-					(mid 1.6164 0.1796)
-					(end 1.27 -1.016)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
 				(polyline
 					(pts
 						(xy 0 -6.604) (xy 0 0)
@@ -6104,6 +6108,44 @@
 					)
 					(fill
 						(type none)
+					)
+				)
+			)
+			(symbol "PROBE ATLAS ENV-40-EC-K1.0_1_0"
+				(pin free line
+					(at 0 0 270)
+					(length 2.54)
+					(name ""
+						(effects
+							(font
+								(size 0 0)
+							)
+						)
+					)
+					(number "G"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin free line
+					(at 0 0 270)
+					(length 2.54)
+					(name ""
+						(effects
+							(font
+								(size 0 0)
+							)
+						)
+					)
+					(number "S"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
 					)
 				)
 			)
@@ -6752,10 +6794,14 @@
 			(embedded_fonts no)
 		)
 		(symbol "Coert-Vonk:PROBE ULTRASONIC SENSOR"
+			(pin_numbers
+				(hide yes)
+			)
 			(pin_names
 				(offset 1.016)
+				(hide yes)
 			)
-			(exclude_from_sim no)
+			(exclude_from_sim yes)
 			(in_bom yes)
 			(on_board no)
 			(property "Reference" "PB"
@@ -6786,7 +6832,7 @@
 					(hide yes)
 				)
 			)
-			(property "Datasheet" "https://7semi.com/7semi-bme280-pressure-humidity-temperature-sensor-probe/?srsltid=AfmBOoo0M0YKUkh5_x4d4BUS7Gb6TGHH3b26bamkNUaszJLqGicsZQ4m"
+			(property "Datasheet" ""
 				(at 0 0 0)
 				(effects
 					(font
@@ -6795,7 +6841,7 @@
 					(hide yes)
 				)
 			)
-			(property "Description" ""
+			(property "Description" "Adafruit RCWL-1601 Ultrasonic Sensor"
 				(at 0 0 0)
 				(effects
 					(font
@@ -6805,6 +6851,15 @@
 				)
 			)
 			(property "DKPN" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "Adafruit RCWL-1601 Ultrasonic Sensor"
 				(at 0 0 0)
 				(effects
 					(font
@@ -6941,18 +6996,6 @@
 					)
 				)
 				(arc
-					(start -2.286 -8.89)
-					(mid -3.9024 -8.2204)
-					(end -4.572 -6.604)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(arc
 					(start 0.0002 -6.6042)
 					(mid -0.6694 -8.2206)
 					(end -2.2858 -8.8902)
@@ -6964,48 +7007,12 @@
 						(type none)
 					)
 				)
-				(polyline
-					(pts
-						(xy 0 5.08) (xy 2.54 5.08)
-					)
+				(arc
+					(start -2.286 -8.89)
+					(mid -3.9024 -8.2204)
+					(end -4.572 -6.604)
 					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0 2.54) (xy 2.54 2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0 0) (xy 2.54 0)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0 -2.54) (xy 2.54 -2.54)
-					)
-					(stroke
-						(width 0)
+						(width 0.254)
 						(type default)
 					)
 					(fill
@@ -7022,6 +7029,80 @@
 					)
 					(fill
 						(type none)
+					)
+				)
+			)
+			(symbol "PROBE ULTRASONIC SENSOR_1_0"
+				(pin free line
+					(at 2.54 5.08 180)
+					(length 2.54)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 0 0)
+							)
+						)
+					)
+				)
+				(pin free line
+					(at 2.54 2.54 180)
+					(length 2.54)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 0 0)
+							)
+						)
+					)
+				)
+				(pin free line
+					(at 2.54 0 180)
+					(length 2.54)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 0 0)
+							)
+						)
+					)
+				)
+				(pin free line
+					(at 2.54 -2.54 180)
+					(length 2.54)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 0 0)
+							)
+						)
 					)
 				)
 			)
@@ -9914,13 +9995,144 @@
 						(type none)
 					)
 				)
-				(pin unspecified line
-					(at 0 0 0)
-					(length 5.08)
-					(name "1"
+			)
+			(embedded_fonts no)
+		)
+		(symbol "Coert-Vonk:TERM BLK PLG 2POS 5.08mm"
+			(pin_names
+				(offset 0.254)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board no)
+			(property "Reference" "PLG"
+				(at 0 4.445 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "MC_0.2\""
+				(at 0 1.905 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "Coert-Vonk:TERM BLK PLUG 2POS 5.08mm"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+						(italic yes)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/540/1836079.pdf"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+						(italic yes)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "2 Position Terminal Block Plug, Female Sockets 0.200\" (5.08mm) 180° Free Hanging (In-Line)"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "DKPN" "277-6146-ND"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "Phoenix Connect COMBICON MC 0.2\" 1836079"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "CONN_PPPC031LFBN-RC_SUL"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "TERM BLK PLG 2POS 5.08mm_0_1"
+				(circle
+					(center 0 -5.08)
+					(radius 0.635)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(rectangle
+					(start 0.635 -1.905)
+					(end -0.635 -3.175)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "TERM BLK PLG 2POS 5.08mm_1_0"
+				(polyline
+					(pts
+						(xy -2.54 -2.54) (xy -0.635 -2.54)
+					)
+					(stroke
+						(width 0.1778)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 -5.08) (xy -0.635 -5.08)
+					)
+					(stroke
+						(width 0.1778)
+						(type solid)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin passive line
+					(at -5.08 -2.54 0)
+					(length 2.54)
+					(name ""
 						(effects
 							(font
-								(size 1.27 1.27)
+								(size 0 0)
 							)
 						)
 					)
@@ -9932,13 +10144,13 @@
 						)
 					)
 				)
-				(pin unspecified line
-					(at 0 -2.54 0)
-					(length 5.08)
-					(name "2"
+				(pin passive line
+					(at -5.08 -5.08 0)
+					(length 2.54)
+					(name ""
 						(effects
 							(font
-								(size 1.27 1.27)
+								(size 0 0)
 							)
 						)
 					)
@@ -9950,22 +10162,175 @@
 						)
 					)
 				)
-				(pin unspecified line
-					(at 0 -5.08 0)
-					(length 5.08)
-					(name "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
+			)
+			(symbol "TERM BLK PLG 2POS 5.08mm_1_1"
+				(rectangle
+					(start -2.54 0)
+					(end 2.54 -7.62)
+					(stroke
+						(width 0.254)
+						(type default)
 					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "TERM BLK PLG 2POS 5.08mm_1_2"
+				(polyline
+					(pts
+						(xy 5.08 2.54) (xy 5.08 -7.62)
+					)
+					(stroke
+						(width 0.127)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 5.08 -7.62) (xy 12.7 -7.62)
+					)
+					(stroke
+						(width 0.127)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 7.62 0) (xy 5.08 0)
+					)
+					(stroke
+						(width 0.127)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 7.62 0) (xy 8.89 0.8467)
+					)
+					(stroke
+						(width 0.127)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 7.62 0) (xy 8.89 -0.8467)
+					)
+					(stroke
+						(width 0.127)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 7.62 -2.54) (xy 5.08 -2.54)
+					)
+					(stroke
+						(width 0.127)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 7.62 -2.54) (xy 8.89 -1.6933)
+					)
+					(stroke
+						(width 0.127)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 7.62 -2.54) (xy 8.89 -3.3867)
+					)
+					(stroke
+						(width 0.127)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 7.62 -5.08) (xy 5.08 -5.08)
+					)
+					(stroke
+						(width 0.127)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 7.62 -5.08) (xy 8.89 -4.2333)
+					)
+					(stroke
+						(width 0.127)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 7.62 -5.08) (xy 8.89 -5.9267)
+					)
+					(stroke
+						(width 0.127)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 12.7 2.54) (xy 5.08 2.54)
+					)
+					(stroke
+						(width 0.127)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 12.7 -7.62) (xy 12.7 2.54)
+					)
+					(stroke
+						(width 0.127)
+						(type default)
+					)
+					(fill
+						(type none)
 					)
 				)
 			)
@@ -10468,452 +10833,6 @@
 					)
 					(fill
 						(type none)
-					)
-				)
-				(pin unspecified line
-					(at 0 0 0)
-					(length 5.08)
-					(name "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin unspecified line
-					(at 0 -2.54 0)
-					(length 5.08)
-					(name "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin unspecified line
-					(at 0 -5.08 0)
-					(length 5.08)
-					(name "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
-		(symbol "Coert-Vonk:TERM BLK PLUG 2POS 5.08mm"
-			(pin_names
-				(offset 0.254)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board no)
-			(property "Reference" "PLUG"
-				(at 0 4.445 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "MC_0.2\""
-				(at 0 1.905 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" "Coert-Vonk:TERM BLK PLUG 2POS 5.08mm"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-						(italic yes)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" "https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/540/1836079.pdf"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-						(italic yes)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "2 Position Terminal Block Plug, Female Sockets 0.200\" (5.08mm) 180° Free Hanging (In-Line)"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "DKPN" "277-6146-ND"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "Phoenix Connect COMBICON MC 0.2\" 1836079"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_fp_filters" "CONN_PPPC031LFBN-RC_SUL"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "TERM BLK PLUG 2POS 5.08mm_0_1"
-				(circle
-					(center 0 -5.08)
-					(radius 0.635)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(rectangle
-					(start 0.635 -1.905)
-					(end -0.635 -3.175)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "TERM BLK PLUG 2POS 5.08mm_1_0"
-				(polyline
-					(pts
-						(xy -2.54 -2.54) (xy -0.635 -2.54)
-					)
-					(stroke
-						(width 0.1778)
-						(type solid)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy -2.54 -5.08) (xy -0.635 -5.08)
-					)
-					(stroke
-						(width 0.1778)
-						(type solid)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(pin passive line
-					(at -5.08 -2.54 0)
-					(length 2.54)
-					(name ""
-						(effects
-							(font
-								(size 0 0)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin passive line
-					(at -5.08 -5.08 0)
-					(length 2.54)
-					(name ""
-						(effects
-							(font
-								(size 0 0)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(symbol "TERM BLK PLUG 2POS 5.08mm_1_1"
-				(rectangle
-					(start -2.54 0)
-					(end 2.54 -7.62)
-					(stroke
-						(width 0.254)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-			)
-			(symbol "TERM BLK PLUG 2POS 5.08mm_1_2"
-				(polyline
-					(pts
-						(xy 5.08 2.54) (xy 5.08 -7.62)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 5.08 -7.62) (xy 12.7 -7.62)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 7.62 0) (xy 5.08 0)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 7.62 0) (xy 8.89 0.8467)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 7.62 0) (xy 8.89 -0.8467)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 7.62 -2.54) (xy 5.08 -2.54)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 7.62 -2.54) (xy 8.89 -1.6933)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 7.62 -2.54) (xy 8.89 -3.3867)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 7.62 -5.08) (xy 5.08 -5.08)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 7.62 -5.08) (xy 8.89 -4.2333)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 7.62 -5.08) (xy 8.89 -5.9267)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 12.7 2.54) (xy 5.08 2.54)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 12.7 -7.62) (xy 12.7 2.54)
-					)
-					(stroke
-						(width 0.127)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(pin unspecified line
-					(at 0 0 0)
-					(length 5.08)
-					(name "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin unspecified line
-					(at 0 -2.54 0)
-					(length 5.08)
-					(name "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin unspecified line
-					(at 0 -5.08 0)
-					(length 5.08)
-					(name "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
 					)
 				)
 			)
@@ -12210,6 +12129,211 @@
 						(effects
 							(font
 								(size 0 0)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "PUMP KAMOER NKP-DC-B08_1"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board no)
+			(property "Reference" "P"
+				(at 0 5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "KAMOER_NKP-DC-B08"
+				(at 0 2.54 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "PUMP KAMOER NKP-DC-B08_1_0_1"
+				(polyline
+					(pts
+						(xy -1.8043 -6.206) (xy -2.8203 -7.73) (xy 4.7997 -7.73) (xy 3.7837 -6.206)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.8904 -6.6169) (xy 2.8137 -6.6271)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center -0.7883 -5.19)
+					(radius 1.4368)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.4027 -1.4821) (xy -0.4138 -0.0197)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -0.2514 -1.0482) (xy -2.0741 -4.5249)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 0.9897 -1.634)
+					(radius 1.3678)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 1.016 -3.81)
+					(radius 3.6632)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.2526 -1.0758) (xy 4.0791 -4.5861)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 2.3443 -1.535) (xy 2.3443 -0.011)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 2.7677 -5.19)
+					(radius 1.4368)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "PUMP KAMOER NKP-DC-B08_1_1_0"
+				(pin passive line
+					(at -7.62 -2.54 0)
+					(length 5.08)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "12V"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at -7.62 -5.08 0)
+					(length 5.08)
+					(name ""
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
 							)
 						)
 					)
@@ -14226,12 +14350,6 @@
 		(uuid "096ab87b-f792-4c8a-ad17-2f3bf21d389f")
 	)
 	(junction
-		(at 392.43 102.87)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "0a4b9bae-3dc4-42a3-816d-07fda5a3f5ef")
-	)
-	(junction
 		(at 240.03 196.85)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -14290,12 +14408,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "25a0faab-4b9a-4284-ae64-6007e1db7f43")
-	)
-	(junction
-		(at 392.43 100.33)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "2c4692b4-c8ce-47f6-b1f5-8923538d799b")
 	)
 	(junction
 		(at 209.55 38.1)
@@ -14680,6 +14792,10 @@
 	(no_connect
 		(at 92.71 128.27)
 		(uuid "3b0f0650-e4b6-4604-a289-e0d920fb96f9")
+	)
+	(no_connect
+		(at 92.71 110.49)
+		(uuid "655aee89-2c44-42d7-950a-4dfd7b3cad72")
 	)
 	(no_connect
 		(at 92.71 125.73)
@@ -15437,16 +15553,6 @@
 	)
 	(wire
 		(pts
-			(xy 392.43 102.87) (xy 394.97 102.87)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "47e701e4-d4c4-4f4a-b8f5-ef9a040dd0d3")
-	)
-	(wire
-		(pts
 			(xy 254 139.7) (xy 254 149.86)
 		)
 		(stroke
@@ -15924,16 +16030,6 @@
 			(type default)
 		)
 		(uuid "6dec5b69-cbd5-4b51-aef7-9bb83e012f4e")
-	)
-	(wire
-		(pts
-			(xy 92.71 110.49) (xy 95.25 110.49)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6f5b3d14-2482-489e-90e1-42c407c1716b")
 	)
 	(wire
 		(pts
@@ -17327,16 +17423,6 @@
 	)
 	(wire
 		(pts
-			(xy 392.43 100.33) (xy 394.97 100.33)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d674d347-1679-4068-b481-b7371cbf0756")
-	)
-	(wire
-		(pts
 			(xy 199.39 222.25) (xy 199.39 220.98)
 		)
 		(stroke
@@ -18626,28 +18712,6 @@
 		(uuid "cf561325-c0b2-467c-84b1-89b1d4648f37")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
 			(at 193.266 114.3 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-				(hide yes)
-			)
-		)
-	)
-	(global_label "PUMP_PH_UP"
-		(shape output)
-		(at 95.25 110.49 0)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "daf8b001-17e8-44bb-8f1d-44c4d8c83f49")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 108.6976 110.49 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -21392,85 +21456,6 @@
 		)
 	)
 	(symbol
-		(lib_id "Coert-Vonk:TERM BLK PLUG 2POS 5.08mm")
-		(at 326.39 97.79 0)
-		(mirror y)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board no)
-		(dnp no)
-		(uuid "1f44cdbf-0336-49b4-90d0-9e603515bcb4")
-		(property "Reference" "PLG3"
-			(at 326.39 107.696 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "MC_0.2\""
-			(at 326.39 110.236 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Coert-Vonk:TERM BLK PLUG 2POS 5.08mm"
-			(at 326.39 97.79 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-					(italic yes)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" "https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/540/1836079.pdf"
-			(at 326.39 97.79 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-					(italic yes)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "2 Position Terminal Block Plug, Female Sockets 0.200\" (5.08mm) 180° Free Hanging (In-Line)"
-			(at 326.39 97.79 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "DKPN" "277-6146-ND"
-			(at 326.39 97.79 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "2"
-			(uuid "60ba14ab-ff18-4b79-a261-c52adec1a37f")
-		)
-		(pin "1"
-			(uuid "dfb97134-ae71-4850-8e3d-6af617a04f89")
-		)
-		(instances
-			(project ""
-				(path "/a0000000-0000-4000-8000-000000002687"
-					(reference "PLG3")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Coert-Vonk:REG 3.3V 1A LDO AZ1117-3.3")
 		(at 193.04 35.56 0)
 		(unit 1)
@@ -22577,7 +22562,7 @@
 				(hide yes)
 			)
 		)
-		(property "Description" ""
+		(property "Description" "Adafruit RCWL-1601 Ultrasonic Sensor"
 			(at 35.56 220.98 0)
 			(effects
 				(font
@@ -22594,6 +22579,18 @@
 				)
 				(hide yes)
 			)
+		)
+		(pin "3"
+			(uuid "ec0f3968-9cca-4cc0-af64-4a976c0585e1")
+		)
+		(pin "4"
+			(uuid "4608b318-e7d2-4489-b4d3-fdb61791caee")
+		)
+		(pin "2"
+			(uuid "5ebdf667-2cca-44a5-b325-63be001e0070")
+		)
+		(pin "1"
+			(uuid "9a36d2a8-1c22-417e-8106-9885faa6ca91")
 		)
 		(instances
 			(project ""
@@ -26028,6 +26025,7 @@
 		)
 	)
 	(symbol
+		(lib_name "PUMP KAMOER NKP-DC-B08_1")
 		(lib_id "Coert-Vonk:PUMP KAMOER NKP-DC-B08")
 		(at 394.97 143.51 0)
 		(unit 1)
@@ -26037,15 +26035,15 @@
 		(dnp no)
 		(uuid "87af4495-f751-43e0-924a-fb2a3e0e1cf2")
 		(property "Reference" "P2"
-			(at 395.478 152.908 0)
+			(at 394.97 138.43 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
 			)
 		)
-		(property "Value" "PH↓"
-			(at 395.478 155.448 0)
+		(property "Value" "pH↓"
+			(at 394.97 140.97 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -26464,7 +26462,7 @@
 			(uuid "bdd3dc97-b532-45b3-af46-a7c6a4bb7ff4")
 		)
 		(instances
-			(project ""
+			(project "OPNhydro_r1"
 				(path "/a0000000-0000-4000-8000-000000002687"
 					(reference "V1")
 					(unit 1)
@@ -27263,6 +27261,12 @@
 				(hide yes)
 			)
 		)
+		(pin "G"
+			(uuid "28a9c0c4-c963-447c-965a-b131ce12c027")
+		)
+		(pin "S"
+			(uuid "ce5578ba-33f9-471e-8801-f34dfb1e7c70")
+		)
 		(instances
 			(project ""
 				(path "/a0000000-0000-4000-8000-000000002687"
@@ -27764,6 +27768,85 @@
 			(project "OPNhydro_r1"
 				(path "/a0000000-0000-4000-8000-000000002687"
 					(reference "#PWR039")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Coert-Vonk:TERM BLK PLG 2POS 5.08mm")
+		(at 326.39 97.79 0)
+		(mirror y)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board no)
+		(dnp no)
+		(uuid "a7b5f72b-6b2f-487a-bb8c-3c9957ffb50a")
+		(property "Reference" "PLG6"
+			(at 326.644 107.188 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "MC_0.2\""
+			(at 326.644 109.728 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Coert-Vonk:TERM BLK PLUG 2POS 5.08mm"
+			(at 326.39 97.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/540/1836079.pdf"
+			(at 326.39 97.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "2 Position Terminal Block Plug, Female Sockets 0.200\" (5.08mm) 180° Free Hanging (In-Line)"
+			(at 326.39 97.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "DKPN" "277-6146-ND"
+			(at 326.39 97.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "81e83781-7950-4e66-8a2f-597afa2aad85")
+		)
+		(pin "2"
+			(uuid "e265c3fe-f3ef-49d5-972a-3fe09f041655")
+		)
+		(instances
+			(project ""
+				(path "/a0000000-0000-4000-8000-000000002687"
+					(reference "PLG6")
 					(unit 1)
 				)
 			)
