@@ -16096,12 +16096,6 @@
 		(uuid "38ad17a7-95d9-40bf-b204-107b63611b37")
 	)
 	(junction
-		(at 97.79 129.54)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "3a4eeee1-bf88-43b7-8dde-50212addebc5")
-	)
-	(junction
 		(at 240.03 146.05)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -16226,6 +16220,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "6e3087b1-e3b6-42a3-b887-1cc8e3002efa")
+	)
+	(junction
+		(at 97.79 127)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "6e60e0b6-a053-4b35-b985-69dd6d8a39c6")
 	)
 	(junction
 		(at 299.72 227.33)
@@ -20337,7 +20337,7 @@
 	)
 	(wire
 		(pts
-			(xy 97.79 129.54) (xy 99.06 129.54)
+			(xy 97.79 127) (xy 99.06 127)
 		)
 		(stroke
 			(width 0)
@@ -21271,7 +21271,7 @@
 	)
 	(global_label "STEP_BUS"
 		(shape bidirectional)
-		(at 99.06 129.54 0)
+		(at 99.06 127 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -21281,7 +21281,7 @@
 		)
 		(uuid "068c635a-4d53-456f-b05e-e853a14364be")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 112.5302 129.54 0)
+			(at 112.5302 127 0)
 			(effects
 				(font
 					(size 1.27 1.27)

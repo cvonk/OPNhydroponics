@@ -6,13 +6,13 @@ ESP32-C6 based NFT hydroponics controller with full sensor suite, dosing pump co
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                           12V DC INPUT                                   │
+│                           24V DC INPUT                                   │
 │                               │                                          │
 │                    ┌──────────┴──────────┐                               │
 │                    │                     │                               │
 │                    ▼                     ▼                               │
 │              ┌─────────┐           ┌─────────┐                           │
-│              │ 12V Bus │           │ 5V DC   │                           │
+│              │ 24V Bus │           │ 5V DC   │                           │
 │              │ (Pumps) │           │ (Logic) │                           │
 │              └────┬────┘           └────┬────┘                           │
 │                   │                     │                                │
@@ -89,7 +89,7 @@ calibration is a one-time measurement and accuracy is maintained until tubing re
 - Order without bundled drive board; TMC2209 used instead
 
 **Driver — Trinamic TMC2209 (QFN-28, UART mode):**
-- VM: 4.75–29V (12V rail used)
+- VM: 4.75–29V (24V rail used)
 - Logic: 3.3V
 - Current: 2A RMS rated; set to 0.75A via IRUN register (RSENSE=220mΩ, VREF=0.58V)
 - StealthChop2: near-silent operation at low step rates
@@ -99,21 +99,16 @@ calibration is a one-time measurement and accuracy is maintained until tubing re
 - Standalone fallback: PDN_UART 100kΩ to 3.3V, MS1/MS2 set microstepping, EN→GPIO20; see §7.2
 - DIAG pin available for StallGuard4 fault detection (optional in v1)
 
-**Why 12V and not 24V:**
-The 24V variant of the KAS pump was considered to reduce supply current. It does not help
-for stepper motors driven by a current-regulating chopper driver.
+**Note on 24V supply and dosing pump compatibility:**
+The system uses a single 24V rail throughout. The Kamoer KAS SF-12V is labeled "12V" but
+the TMC2209 current-regulating chopper driver (VM range 4.75–29V) limits coil current to
+the VREF/RSENSE setpoint (0.75A) regardless of supply voltage. At the low step rates used
+for dosing, back-EMF is negligible, so supply power ≈ I²×R_coil — independent of VM.
+Running the stepper at 24V VM with the same 0.75A setpoint is electrically equivalent to
+12V VM from the motor's perspective.
 
-The TMC2209 regulates coil current to the VREF/RSENSE setpoint (0.75A) regardless of
-supply voltage. At low step rates — where dosing pumps operate — back-EMF is negligible,
-so supply power is approximately I²×R_coil, independent of VM. Switching from 12V to 24V
-supply with the same 0.75A coil current does not meaningfully reduce supply current draw.
-
-The only real benefit of higher supply voltage for stepper motors is a higher achievable
-step rate (faster di/dt = V/L allows the coil to reach rated current at higher RPM). For
-a dosing pump turning a few rotations per dose at <50 RPM, this is irrelevant.
-
-Using 24V for dosing pumps while keeping 12V for the main pump and ATO valve would require
-a second supply rail. 12V is used throughout.
+24V is used because it enables a broader selection of main circulation pumps and ATO
+solenoid valves, which are voltage-sensitive (unlike current-regulated stepper drivers).
 
 ### 3. ESP32-C6 Module Selection
 
@@ -127,7 +122,7 @@ Selected: **ESP32-C6-DevKitC-1-N8** (8MB flash) - Includes USB-C, PCB antenna, b
 
 Uses existing ultrasonic sensor for level detection with a normally-closed solenoid valve:
 - **Detection**: Ultrasonic sensor monitors water level continuously
-- **Valve type**: 12V NC (normally closed) solenoid - fails safe (closed)
+- **Valve type**: 24V NC (normally closed) solenoid - fails safe (closed)
 - **Safety**: Float switch provides hardware backup cutoff
 - **User confirmation**: System requests approval via Home Assistant before filling
 - **Timeout**: Maximum fill time prevents overflow if sensor fails
@@ -296,27 +291,29 @@ Never run EC and pH corrections in the same step. Always re-measure after mixing
 | 18 | (available) | — | Free GPIO |
 | 19 | STEP_NUT_B | Output | TMC2209 STEP for Nutrient B driver |
 | 20 | (available) | — | Free GPIO — EN tied to GND on all TMC2209 drivers (IHOLD=0 handles standstill) |
-| 21 | TMC2209_UART_RX | Input | TMC2209 UART bus RX (ESP32-C6 UART1) |
-| 22 | TMC2209_UART_TX | Output | TMC2209 UART bus TX (ESP32-C6 UART1) |
+| 21 | TMC2209_UART_RX | Input | TMC2209 UART bus RX (ESP32-C6 UART1); direct connection to bus node |
+| 22 | TMC2209_UART_TX | Output | TMC2209 UART bus TX (ESP32-C6 UART1); 1kΩ series to bus node (per TMC2209 datasheet §4.3) |
 | 23 | (available) | — | Free GPIO |
 
 ## Power Architecture
 
 ### Recommended Supply
 
-**Mean Well LRS-75-12** (12V / 6A / 75W, enclosed metal, convection cooled).
+**Mean Well LRS-150-24** (24V / 6.5A / 150W, enclosed metal, convection cooled) —
+recommended for comfortable headroom. **Minimum: LRS-100-24** (24V / 4.2A / 100W) if
+cost is a priority.
 
-Peak 12V load estimate: main pump (1.2A) + 3× dosing (0.75A each, only when stepping) +
-ATO valve (0.5A) + logic buck input (0.5A) ≈ 4.5A worst-case simultaneous. 6A provides
-1.5A headroom.
+Peak 24V load estimate: main pump (~0.75A at 24V) + 3× dosing (0.75A each, only when
+stepping) + ATO valve (~0.3A at 24V) + logic buck input (~0.1A) ≈ 3.5A worst-case
+simultaneous. LRS-100-24 (4.2A) provides 20% headroom; LRS-150-24 (6.5A) provides 85%.
 
-**IP67 alternative:** LPV-60-12 (12V / 5A / 60W) for humid environments; adequate if
-loads are not fully simultaneous. Avoid HDR-60-12 — only 4.5A (marginal after derating).
+**IP67 alternative:** LPV-100-24 (24V / 4.2A / 100W) for humid environments.
+Avoid HDR-60-24 — only 2.5A (insufficient).
 
 ```
-12V DC Input (LRS-75-12, 6A)
+24V DC Input (LRS-150-24, 6.5A)
     │
-    ├──► 12V Rail ──┬──► Main Pump MOSFET Q1 (IRLR2905)
+    ├──► 24V Rail ──┬──► Main Pump MOSFET Q1 (IRLR2905)
     │               ├──► 3× TMC2209 dosing stepper drivers (VM pin)
     │               └──► ATO Solenoid Valve MOSFET Q8 (AO3400A)
     │
@@ -328,6 +325,8 @@ loads are not fully simultaneous. Avoid HDR-60-12 — only 4.5A (marginal after 
                                                    (I2C isolator + isoPower
                                                     for pH and EC EZO circuits)
 ```
+
+Note: TPS62933 input range is 3.8–30V — 24V is within spec.
 
 ### Power Budget
 
@@ -344,10 +343,10 @@ loads are not fully simultaneous. Avoid HDR-60-12 — only 4.5A (marginal after 
 | WS2812B LED | 5V | 20mA | 60mA |
 | **3.3V Total** | | ~150mA | ~550mA |
 | **5V Total** | | ~25mA | ~80mA |
-| Main Pump | 12V | 500mA | 1.5A |
-| Dosing pump — KAS SF-12V (each) | 12V | 0 (EN disabled) | 750mA |
-| ATO Solenoid Valve | 12V | 0 (idle) | 500mA |
-| **12V Total** | | 500mA | 3.2A |
+| Main Pump (24V, TBD) | 24V | 300mA | 1.0A |
+| Dosing pump — KAS SF-12V (each) | 24V | 0 (EN disabled) | 750mA |
+| ATO Solenoid Valve (24V NC) | 24V | 0 (idle) | 300mA |
+| **24V Total** | | ~300mA | ~3.5A |
 
 ## Sensor Specifications
 
@@ -402,7 +401,7 @@ loads are not fully simultaneous. Avoid HDR-60-12 — only 4.5A (marginal after 
 ### Connector Selection
 | Function | Connector Type |
 |----------|----------------|
-| 12V Power | 2-pin pluggable screw terminal (3.5mm) |
+| 24V Power | 2-pin pluggable screw terminal (3.5mm) |
 | Main Pump | 2-pin pluggable screw terminal (**5.08mm** — Phoenix MSTB 2.5/2-ST-5.08) |
 | Dosing Pumps (stepper) | 3× JST S6B-PH-K-S (6-pin PH 2.0mm right-angle TH — mates with PHR-6 on KAS SF-12V cable; VCC/GND/A+/A−/B+/B−) |
 | ATO Solenoid | 2-pin pluggable screw terminal (3.5mm — Phoenix MC 1.5/2-ST-3.5) |

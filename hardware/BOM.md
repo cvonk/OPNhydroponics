@@ -29,12 +29,12 @@ Note: Using DevKit instead of bare module - includes USB-C, antenna, and boot/re
 
 | Qty | Part | Description | Notes | Price |
 |-----|------|-------------|-------|-------|
-| 1 | TPS62933DRLR | 12V→5V synchronous buck, 3A, SOT583 | Logic power | — |
+| 1 | TPS62933DRLR | 24V→5V synchronous buck, 3A, SOT583 | Logic power; input range 3.8–30V | — |
 | 1 | AMS1117-3.3 | 5V→3.3V LDO, 1A | ESP32 power | $0.50 |
 | 1 | B5819W | Schottky diode, reverse protection | Or SS54 | $0.20 |
-| 1 | SI2301 | P-MOSFET, reverse polarity | SOT-23 | $0.30 |
-| 2 | 100µF/25V | Electrolytic capacitor | Input/output | $0.50 |
-| 4 | 10µF/25V | Ceramic capacitor | Decoupling | $0.40 |
+| 1 | AO3401A | P-MOSFET, reverse polarity, −30V Vds | SOT-23; replaces SI2301 (was −20V, insufficient at 24V) | $0.30 |
+| 2 | 100µF/**50V** | Electrolytic capacitor | Input/output; 50V required at 24V rail | $0.60 |
+| 4 | 10µF/**50V** | Ceramic capacitor | Decoupling; 50V required at 24V rail | $0.60 |
 | 1 | PTC fuse 5A | Resettable fuse | Protection | $0.50 |
 
 **Subtotal: ~$5-10**
@@ -77,12 +77,16 @@ Note: Atlas Scientific probes include calibration data and have better longevity
 
 | Qty | Part | Description | Source | Price |
 |-----|------|-------------|--------|-------|
-| 1 | AUBIG DC40-1250 | Brushless DC 12V, 500 L/H, 5m head, ~1.0A, barbed fittings | [Amazon (B076QB7P2V)](https://www.amazon.com/dp/B076QB7P2V) / [eBay](https://www.ebay.com/p/1411964986) | ~$20–25 |
+| 1 | **24V brushless pump (TBD)** | Brushless DC **24V**, ≥500 L/H, ≥4m head, barbed or NPT fittings | TBD | ~$20–40 |
 
-**Selected model: AUBIG DC40-1250** — barbed fittings, 12V, 500 L/H, 5m head, ~1.0–1.2A
+**Main pump: 24V selection pending.** The AUBIG DC40-1250 (12V) is no longer suitable —
+system runs a single 24V rail. A direct-equivalent 24V brushless submersible must be selected.
 
-- Amazon ASIN B076QB7P2V (also B008F29MYA); also available on eBay if out of stock
-- DC40E-1250 (NPT threads variant) is currently in short supply — use barbed DC40-1250 instead
+Requirements:
+- Voltage: 24V DC
+- Flow: ≥500 L/H at operating head
+- Head: ≥4m (sufficient for typical NFT setup)
+- Fittings: barbed preferred (easier tubing attachment)
 - Avoid generic unbranded brushless pumps — flow rate and current draw are often misrepresented
 
 ### Dosing Pumps
@@ -93,17 +97,26 @@ Note: Atlas Scientific probes include calibration data and have better longevity
 
 Required: pH Down (U5), Nutrient A (U6), Nutrient B (U7) — 3 pumps total.
 Order **without** bundled drive board; TMC2209 replaces it.
-BPT tube recommended over silicone for longer chemical resistance life.
+
+**Tubing:**
+- pH Down (U5): **Pharmed BPT required** — silicone degrades in weeks with concentrated phosphoric acid.
+  Specify EPDM or Viton rollers; standard Santoprene inadequate for acid service.
+- Nutrient A/B (U6, U7): silicone 3mm ID acceptable; Santoprene rollers OK.
+
+Note: The KAS SF-12V motor operates at 24V VM via the TMC2209 (range 4.75–29V). The "12V"
+in the model name refers to nominal motor voltage without a current-regulating driver; the
+TMC2209 limits coil current to 0.75A regardless of VM. See PUMPS.md for full justification.
 
 ### ATO Solenoid Valve
 
 | Qty | Part | Description | Source | Price |
 |-----|------|-------------|--------|-------|
-| 1 | 12V NC Solenoid Valve | 1/2" normally closed, food safe | Amazon/AliExpress | $8 |
+| 1 | **24V NC Solenoid Valve** | 1/2" normally closed, food safe | Amazon/AliExpress | $8–12 |
 
 Recommended:
-- US Solid 12V NC solenoid (food grade)
-- Must be NC (normally closed) for fail-safe operation
+- US Solid **24V** NC solenoid (food grade)
+- Must be NC (normally closed) for fail-safe operation (closed on power loss)
+- Confirm 24V coil — same physical form factor as 12V variant
 
 **Actuators Subtotal: ~$150** (3× KAS SF-12V stepper pumps dominate cost)
 
@@ -116,7 +129,7 @@ Recommended:
 | Qty | Part | Description | Notes | Price |
 |-----|------|-------------|-------|-------|
 | 1 | IRLR2905 | N-MOSFET 55V/42A, DPAK | Main pump driver (Q1) | — |
-| 1 | AO3400A | N-MOSFET 30V/5.7A, SOT-23 | ATO solenoid valve (Q8) | — |
+| 1 | AO3400A | N-MOSFET 30V/5.7A, SOT-23 | ATO solenoid valve (Q8); ⚠ 30V rating — only 6V margin at 24V with flyback clamping | — |
 | 2 | MMBT3904 | NPN transistor, SOT-23 | Float switch hardware cutoffs (Q9, Q10) | $0.05 ea |
 | 2 | 10kΩ resistor | Gate pull-down (Q1, Q8) | 0805 | $0.05 ea |
 | 2 | 100Ω resistor | Gate series (Q1, Q8) | 0805 | $0.05 ea |
@@ -129,9 +142,9 @@ Recommended:
 | 3 | TMC2209 | Stepper driver, QFN-28, 2A RMS | U5 pH Down, U6 Nut A, U7 Nut B | ~$2 ea |
 | 6 | 220mΩ resistor | RSENSE, 1% tol, **1/4W**, 0805 | 2 per driver (BRA, BRB); typ 62mW, max 190mW at full scale | $0.10 ea |
 | 3 | 100nF capacitor | VM local bypass, 0402 | 1 per driver | $0.05 ea |
-| 3 | 47µF / 25V electrolytic | VM bulk cap | 1 per driver | $0.20 ea |
+| 3 | 100µF / **35V** electrolytic | VM bulk cap, place within 5mm of VM pin | 1 per driver; 35V required at 24V rail | $0.30 ea |
 | 3 | 100Ω resistor | PDN_UART series to UART bus | 1 per driver, 0402 | $0.05 ea |
-| 1 | 1kΩ resistor | UART TX bus series (GPIO22) | shared, 0402 | $0.05 ea |
+| 1 | 1kΩ resistor | UART TX series (GPIO22) — limits fault current when TX drives HIGH into TMC2209 open-drain (per datasheet §4.3); RX is direct | shared, 0402 | $0.05 ea |
 | 3 | 4.7kΩ resistor | VREF divider high-side | 1 per driver, 0402 | $0.05 ea |
 | 3 | 1kΩ resistor | VREF divider low-side | 1 per driver, 0402 | $0.05 ea |
 
@@ -147,7 +160,7 @@ Recommended:
 | 1 | Phoenix MSTB 2.5/2-ST-5.08 | 5.08mm pluggable terminal | Main pump (header + plug) | $0.50 |
 | 3 | JST S6B-PH-K-S | PH 2.0mm 6-pin right-angle TH header | Dosing stepper motors ×3 — mates with PHR-6 on pump cable (VCC/GND/A+/A−/B+/B−) | $0.20 ea |
 | 1 | Phoenix MC 1.5/2-ST-3.5 | 3.5mm pluggable terminal, 2-pin | ATO solenoid valve | $0.40 |
-| 1 | Pluggable terminal 2P | 3.5mm pitch | 12V power input (header + plug) | $0.50 |
+| 1 | Pluggable terminal 2P | 3.5mm pitch | 24V power input (header + plug) | $0.50 |
 | 3 | BNC panel mount female | For probes | pH/EC/RTD | $2 ea |
 | 4 | JST-PH 4P | I2C sensors | Qwiic compat | $0.20 ea |
 | 2 | JST-XH 2P | Float switch connectors (FLOAT_LOW + FLOAT_HIGH) | | $0.15 ea |
@@ -183,29 +196,28 @@ Recommended:
 
 ## Power Supply
 
-System requires **12V DC, ≥5A**. Peak load estimate: main pump (1.2A) + 3× dosing pumps
-(0.75A each, only when stepping) + ATO valve (0.5A) + logic (0.5A) ≈ 4.5A peak, with
-all loads simultaneous being unlikely. 5A rated supply provides adequate headroom; 6A
-recommended for margin.
+System requires **24V DC, ≥4A**. Peak 24V load estimate: main pump (~0.75A) + 3× dosing
+pumps (0.75A each, only when stepping) + ATO valve (~0.3A) + logic buck input (~0.1A)
+≈ 3.5A worst-case simultaneous.
 
 | Model | Output | Efficiency | Form Factor | Notes | Price |
 |-------|--------|------------|-------------|-------|-------|
-| **Mean Well LRS-75-12** ★ | 12V / 6A (75W) | 89% | Enclosed metal, 30mm low-profile | Convection cooled, −30 to +70°C, widely available | ~$18–25 |
-| Mean Well LPV-60-12 | 12V / 5A (60W) | 83% | IP67 plastic, 162×43×32mm | Designed for LED strips; UL1310 Class 2 | ~$20–30 |
-| Mean Well MDR-60-12 | 12V / 5A (60W) | — | DIN rail | Compact DIN mount for panel/cabinet builds | ~$25–35 |
-| Mean Well HDR-60-12 | 12V / 4.5A (54W) | 91% | DIN rail | **Marginal** — only 4.5A, avoid | ~$20–30 |
+| **Mean Well LRS-150-24** ★ | 24V / 6.5A (150W) | 91% | Enclosed metal, 30mm low-profile | Convection cooled; 85% headroom over 3.5A peak | ~$28–35 |
+| Mean Well LRS-100-24 | 24V / 4.2A (100W) | 90% | Enclosed metal, 30mm low-profile | Minimum viable; 20% headroom | ~$22–28 |
+| Mean Well LPV-100-24 | 24V / 4.2A (100W) | 88% | IP67 plastic | Humid environments; constant-voltage LED driver type | ~$25–35 |
+| Mean Well HDR-60-24 | 24V / 2.5A (60W) | — | DIN rail | **Insufficient** — 2.5A below worst-case peak, avoid | ~$20–28 |
 
-**Recommended: Mean Well LRS-75-12** — 6A provides a comfortable 1.5A headroom over
-worst-case peak load, enclosed metal case dissipates heat passively, and 30mm profile
-fits standard enclosures. Available from DigiKey, Mouser, and Amazon.
+**Recommended: Mean Well LRS-150-24** — 6.5A provides 85% headroom over worst-case 3.5A
+peak load. Enclosed metal case, convection cooled, 30mm profile. Available from DigiKey,
+Mouser, and Amazon.
 
-**IP67 alternative: LPV-60-12** — Use in humid environments where the supply is mounted
-inside the grow enclosure. 5A is sufficient if loads are not fully simultaneous. Note:
-LPV series is designed as an LED driver (constant voltage); it works fine as a general
-12V supply but lacks remote sense.
+**Minimum: LRS-100-24** — 4.2A provides ~20% headroom. Adequate if dosing pumps never run
+simultaneously with the main pump at full load.
 
-**Avoid HDR-60-12** — 4.5A output is marginal; derating at elevated temperature reduces
-it further.
+**IP67 alternative: LPV-100-24** — For humid environments. Note: LPV series is designed
+as a constant-voltage LED driver; it works as a general 24V supply but lacks remote sense.
+
+**Avoid HDR-60-24** — only 2.5A output, below worst-case peak load.
 
 ---
 
@@ -216,7 +228,8 @@ it further.
 | 1 | SSD1306 OLED 0.96" | Local status display | $4 |
 | 1 | WS2812B LED | Status indicator | $0.50 |
 | 1 | Buzzer (passive) | Alarm notification | $0.50 |
-| 4 | Silicone tubing 3mm | Dosing pump tubing, 1m each | $2/m |
+| 2 | Silicone tubing 3mm ID | Nutrient A/B dosing pump tubing, 1m each | $2/m |
+| 1 | **Pharmed BPT tubing 3mm ID** | pH Down dosing pump — acid-resistant; silicone fails in weeks | ~$8–12/m |
 | 1 | Calibration solutions | pH 4, 7, 10 + EC standards | $15-25 |
 
 ---

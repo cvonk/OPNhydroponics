@@ -1,4 +1,4 @@
-27498931562225680
+27513112321481097
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -6769,6 +6769,13 @@ Coert-Vonk
 2
 2
 Coert-Vonk
+CAP ALUM 100μF ±20 25V
+
+
+0
+2
+2
+Coert-Vonk
 CAP ALUM 1000μF ±20 10V
 
 
@@ -6818,6 +6825,13 @@ CAP X7R 1μF ±10 25V 0805
 2
 2
 Coert-Vonk
+CAP X7R 2.2μF ±10 10V
+
+C0805C225K8RACTU 
+0
+2
+2
+Coert-Vonk
 CAP X7R 10nF ±10% 50V 0805
 
 
@@ -6826,6 +6840,13 @@ CAP X7R 10nF ±10% 50V 0805
 2
 Coert-Vonk
 CAP X7R 10μF ±10 16V 0805
+
+
+0
+2
+2
+Coert-Vonk
+CAP X7R 22nF ±10 50V 0805
 
 
 0
@@ -7119,6 +7140,13 @@ SOIC SO
 20
 20
 Coert-Vonk
+IC STEP MOTOR DRIVER TMC2209-LA-T
+28-LFCSP-5X5X0.9
+Integrated Circuit
+0
+29
+29
+Coert-Vonk
 IND 5.6µH 3.5A 40mΩ
 
 SDR0805-5R6ML 
@@ -7364,6 +7392,13 @@ TPS62933DRLR
 8
 8
 Coert-Vonk
+RES 1kΩ ±1 18W Yageo 0805
+
+
+0
+2
+2
+Coert-Vonk
 RES 4.7kΩ ±1 18W Yageo 0805
 
 
@@ -7423,6 +7458,13 @@ Coert-Vonk
 RES 120Ω 0805
 
 RC0805FR-0768RL 
+0
+2
+2
+Coert-Vonk
+RES 220mΩ ±1 18W Yageo 0805
+
+
 0
 2
 2
@@ -7707,6 +7749,13 @@ TERM BLK PLG 6POS MSTB 5.08mm
 0
 0
 Coert-Vonk
+TERM BLK PLG 6POS PHR 2mm
+
+
+0
+0
+0
+Coert-Vonk
 TERM BLK PLUG 2POS 5.08mm
 
 
@@ -7848,6 +7897,13 @@ Untitled_4
 0
 Coert-Vonk
 Untitled_5
+
+
+0
+0
+0
+Coert-Vonk
+Untitled_6
 
 
 0

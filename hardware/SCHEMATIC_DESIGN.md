@@ -5,51 +5,52 @@ This document describes the circuit design for the OPNhydroponics controller PCB
 ## Block Diagram
 
 ```
-                                    ┌────────────────────────────────────────┐
-                                    │              CONNECTORS                │
-                                    │  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐       │
-                                    │  │ BNC │ │ BNC │ │     │ │Float│       │
-                                    │  │ pH  │ │ EC  │ │ RTD │ │ SW  │       │
-                                    │  └──┬──┘ └──┬──┘ └──┬──┘ └──┬──┘       │
-                                    └─────┼──────┼──────┼──────┼─────────────┘
-                                          │      │      │      │
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                                  PCB                                         │
-│  ┌─────────────┐    ┌─────────────────────────────────────────────────────┐  │
-│  │   POWER     │    │                    SENSORS                          │  │
-│  │             │    │  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐     │  │
-│  │ 12V ──►5V   │    │  │ EZO-pH │  │ EZO-EC │  │ EZO-RTD│  │ BME280 │     │  │
-│  │     ──►3.3V │    │  │  I2C   │  │  I2C   │  │  I2C   │  │  I2C   │     │  │
-│  │             │    │  └───┬────┘  └───┬────┘  └───┬────┘  └───┬────┘     │  │
-│  └──────┬──────┘    │      │           │           │           │          │  │
-│         │           │      └───────────┴───────────┴───────────┘          │  │
-│         │           │                      │ I2C Bus                      │  │
-│         │           └──────────────────────┼──────────────────────────────┘  │
-│         │                                  │                                 │
-│         │           ┌──────────────────────┼──────────────────────────────┐  │
-│         │           │              ESP32-C6-WROOM-1                       │  │
-│         │           │  ┌────────────────────────────────────────────┐     │  │
-│         └──────────►│  │  GPIO4/5: I2C      GPIO2: ATO_VALVE       │     │  │
-│                     │  │  GPIO7/3: Ultrasonic  GPIO0/1: Float SW    │     │  │
-│                     │  │  GPIO6: EZO_PDIS  GPIO10/11/15/19: Pumps     │     │  │
-│                     │  │  GPIO8/17/21-23: Reserved                  │     │  │
-│                     │  └────────────────────────────────────────────┘     │  │
-│                     └──────────────────────┬──────────────────────────────┘  │
-│                                            │                                 │
-│         ┌──────────────────────────────────┼──────────────────────────────┐  │
-│         │                   PUMP/VALVE DRIVERS (all 12V)                  │  │
-│         │  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐     │  │
-│         │  │ 12V    │  │ 12V    │  │ 12V    │  │ 12V    │  │ 12V    │     │  │
-│         │  │ Main   │  │ pH Up  │  │ pH Dn  │  │ Nut A  │  │ Nut B  │     │  │
-│         │  │ Pump   │  │ Dose   │  │ Dose   │  │ Dose   │  │ Dose   │     │  │
-│         │  └────────┘  └────────┘  └────────┘  └────────┘  └────────┘     │  │
-│         │                                                  ┌────────┐     │  │
-│         │                                                  │ 12V    │     │  │
-│         │                                                  │ ATO    │     │  │
-│         │                                                  │ Valve  │     │  │
-│         │                                                  └────────┘     │  │
-│         └─────────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────────────────┘
+                       ┌─────────────────────────────────────────────────────┐
+                       │                    CONNECTORS                       │
+                       │  ┌─────┐ ┌─────┐ ┌─────┐  ┌──────────┐ ┌─────────┐  │
+                       │  │ BNC │ │ BNC │ │ BNC │  │ Float SW │ │Ultrasoni│  │
+                       │  │ pH  │ │ EC  │ │ RTD │  │  2×JST2P │ │c  JST4P │  │
+                       │  └──┬──┘ └──┬──┘ └──┬──┘  └────┬─────┘ └────┬────┘  │
+                       └─────┼───────┼───────┼──────────┼────────────┼───────┘
+                             │       │       │          │            │
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                                    PCB                                          │
+│  ┌─────────────┐   ┌───────────────────────────────────────────────────────┐    │
+│  │   POWER     │   │                       SENSORS                         │    │
+│  │             │   │  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐       │    │
+│  │ 24V ──►5V   │   │  │ EZO-pH │  │ EZO-EC │  │EZO-RTD │  │ BME280 │       │    │
+│  │     ──►3.3V │   │  │  I2C   │  │  I2C   │  │  I2C   │  │  I2C   │       │    │
+│  │             │   │  └───┬────┘  └───┬────┘  └───┬────┘  └───┬────┘       │    │
+│  └──────┬──────┘   │      └───────────┴───────────┴───────────┘            │    │
+│         │          │                        │ I2C Bus                      │    │
+│         │          │  ┌──────────────────┐  ┌───────────────────────────┐  │    │
+│         │          │  │    HC-SR04       │  │    Float SW (×2)          │  │    │
+│         │          │  │  TRIG: GPIO7     │  │    LOW:  GPIO0            │  │    │
+│         │          │  │  ECHO: GPIO3     │  │    HIGH: GPIO1            │  │    │
+│         │          │  └──────────────────┘  └───────────────────────────┘  │    │
+│         │          └───────────────────────────────────────────────────────┘    │
+│         │                                   │                                   │
+│         │          ┌────────────────────────┴─────────────────────────────┐     │
+│         │          │               ESP32-C6-WROOM-1                       │     │
+│         │          │  ┌──────────────────────────────────────────────┐    │     │
+│         └─────────►│  │  GPIO4/5: I2C        GPIO2:  ATO_VALVE       │    │     │
+│                    │  │  GPIO7:   HC_TRIG    GPIO3:  HC_ECHO         │    │     │
+│                    │  │  GPIO0:   FLOAT_LOW  GPIO1:  FLOAT_HIGH      │    │     │
+│                    │  │  GPIO6:   EZO_PDIS   GPIO10: PUMP_MAIN       │    │     │
+│                    │  │  GPIO11:  STEP_PH_DN GPIO15: STEP_NUT_A      │    │     │
+│                    │  │  GPIO19:  STEP_NUT_B GPIO21/22: TMC_UART     │    │     │
+│                    │  └──────────────────────────────────────────────┘    │     │
+│                    └──────────────────────────────────────────────────────┘     │
+│                                            │                                    │
+│         ┌──────────────────────────────────┼──────────────────────────────┐     │
+│         │           PUMP/VALVE DRIVERS (all 24V)                          │     │
+│         │  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐     │     │
+│         │  │ 24V    │  │ 24V    │  │ 24V    │  │ 24V    │  │ 24V    │     │     │
+│         │  │ Main   │  │ pH Dn  │  │ Nut A  │  │ Nut B  │  │ ATO    │     │     │
+│         │  │ Pump   │  │ Dose   │  │ Dose   │  │ Dose   │  │ Valve  │     │     │
+│         │  └────────┘  └────────┘  └────────┘  └────────┘  └────────┘     │     │
+│         └─────────────────────────────────────────────────────────────────┘     │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -59,48 +60,77 @@ This document describes the circuit design for the OPNhydroponics controller PCB
 ### 1.1 Input Protection
 
 ```
-12V DC IN ──┬──[PTC 5A]──┬──[TVS 15V]──┬──► 12V_PROTECTED
+24V DC IN ──┬──[PTC 5A]──┬──[TVS 28V]──┬──► 24V_PROTECTED
             │            │             │
            ─┴─          ─┴─           ─┴─
            GND          GND           GND
 
 Component Selection:
 - PTC: RXEF500 (5A hold, 10A trip)
-- TVS: SMBJ15A (15V standoff, 24V clamp)
+- TVS: SMBJ28A (28V standoff, 45.4V clamp) — for 24V rail; SMBJ15A was for 12V only
 ```
 
 ### 1.2 Reverse Polarity Protection
 
-```
-12V_PROTECTED ────┬───────────────────────► 12V_RAIL
-                  │
-              ┌───┴───┐
-              │       │ S (Source tied to input)
-       ┌──────┤ Q1    │──────────────────────────────────► 12V_SAFE
-       │      │ (P-FET)│
-       │      └───┬───┘ D
-       │          │G
-       R1      ┌──┴──┐
-       10k     │ R2  │ 100k
-       │       │     │
-       ├───────┴─────┘
-       │
-      ─┴─
-      GND
+P-channel MOSFET in series with the supply. Source is the unprotected input;
+Drain is the protected output. R1 (10kΩ) connects Source to Gate; R2 (100kΩ)
+connects Gate to GND.
 
-Q1: SI2301 (P-channel MOSFET, SOT-23)
-- Vds = -20V, Id = -2.8A, Rds(on) = 80mΩ
 ```
+                              Q1 (P-MOSFET, SOT-23)
+                         ┌────────────────────────┐
+                         │  S                  D  │
+24V_PROTECTED ───────────┤  (in)          (out)   ├──────────── 24V_SAFE
+                         │           G            │
+                         └───────────┬────────────┘
+                                     │
+                          ┌──────────┘
+                          │  (R1 10kΩ — Source to Gate)
+                     Source (24V_PROTECTED)
+                          │
+                         [R1]
+                         10kΩ
+                          │
+                         Gate ──────[R2 100kΩ]──── GND
+```
+
+**How it works:**
+
+Normal polarity (+24V at Source):
+- Vgate = 24V × R2/(R1+R2) = 24 × 100/(10+100) ≈ 21.8V
+- Vgs = 21.8 − 24 = **−2.2V** → P-ch FET turns ON
+- Current flows Source→Drain; voltage drop = I × Rds(on)
+
+Reverse polarity (supply plugged backwards → Source at −24V):
+- Vgate = −24V × 100/(10+100) ≈ −21.8V
+- Vgs = −21.8 − (−24) = **+2.2V** → P-ch FET stays OFF; channel does not conduct
+
+⚠ **Component rating note — SI2301 is not suitable for 24V:**
+The SI2301 has Vds(max) = −20V. On reverse polarity the full supply voltage appears
+across D-S; at 24V this exceeds the rating. Replace with a 30V-rated SOT-23 device.
+
+**Recommended replacement: AO3401A** (P-ch, −30V Vds, 4A, Rds(on) 45mΩ, SOT-23)
+- Vgs(th) = −0.45 to −1V; Vgs = −2.2V with the 10kΩ/100kΩ divider → FET fully ON
+- Vgs(max) = ±12V; Vgs = −2.2V at 24V → well within rating
+- Drop-in SOT-23 replacement for SI2301
 
 ### 1.3 Buck Converter
 
-**12V to 5V (Logic/USB)**
+**Design Rationale — why a switching buck converter for 24V→5V:**
+A linear regulator dropping 24V to 5V would dissipate P = (24−5) × I = 19×I watts as
+heat. At 500mA load that's 9.5W — requiring a large heatsink and dominating PCB thermal
+budget. The TPS62933 synchronous buck operates at ~90% efficiency: at 500mA load it
+dissipates only ~(1−0.9) × 24×0.5 = 1.2W. Noise and ripple from the switcher are
+acceptable on the 5V rail, which only powers the HC-SR04 and WS2812B; sensitive
+analog/RF loads run on the 3.3V LDO downstream.
+
+**24V to 5V (Logic/USB)**
 ```
                         Cbst
             ┌──────────┤├───────────────────────────────┐
             │         100nF                             │
             │                                      BST─┘
-12V_SAFE ───┼──[Cin]──┬──────────────────────────┐
+24V_SAFE ───┼──[Cin]──┬──────────────────────────┐
             │  10µF   │                      VIN─┤2      1├─BST
             │        ─┴─                         │           │
             │        GND          EN ────────────┤3  TPS  6 ├─SW──┬──[L1 4.7µH]──┬──► 5V
@@ -129,7 +159,7 @@ Fsw  = 57,400 / RT(kΩ) + 10.3    →  RT = 47kΩ → Fsw ≈ 1 MHz
 Component Selection:
 - IC:   TPS62933DRLR (SOT583, synchronous buck, 3.8–30V in, 3A, 200kHz–2.2MHz)
 - L1:   4.7µH, 3A, DCR < 50mΩ (e.g. Würth 744043004)
-- Cin:  10µF / 25V ceramic (X5R or X7R)
+- Cin:  10µF / **50V** ceramic (X5R or X7R)
 - Cout: 2×22µF / 10V ceramic (X5R or X7R)
 - Cbst: 100nF / 10V ceramic (BST to SW)
 - Css:  10nF (soft-start ≈ 1.5ms; minimum 6.8nF, do not float)
@@ -139,7 +169,7 @@ Component Selection:
 - No external compensation required (internal loop compensation)
 - No external diode required (synchronous rectification)
 
-Note: 12V rail powers pumps and ATO valve directly.
+Note: 24V rail powers pumps and ATO valve directly.
 
 **Additional Output Capacitance for Motor Loads:**
 
@@ -148,11 +178,13 @@ Note: 12V rail powers pumps and ATO valve directly.
 ```
 Recommended Additional Capacitors on 5V Rail:
 
+```
 5V ──┬──[2×22µF]──┬──[1000µF]──┬──[100nF]──► To ESP32 + Loads
      │  (standard │   (bulk    │  (HF
      │   Cout)    │   added)   │   filter)
     ─┴─          ─┴─          ─┴─
     GND          GND          GND
+```
 
 Components:
 - C_bulk: 1000µF / 10V low-ESR electrolytic (Panasonic FR series)
@@ -167,10 +199,17 @@ Why 1000µF?
 - ESP32 WiFi TX peak: 500mA for 100-200ms
 - Voltage sag: ΔV = I × Δt / C
 - Target: <100mV sag → C = 0.5A × 0.2s / 0.1V = 1000µF ✅
-```
-```
 
 ### 1.4 LDO (3.3V)
+
+**Design Rationale — why a linear LDO for 5V→3.3V:**
+The ESP32-C6's RF (Wi-Fi 6, BLE 5) and 12-bit SAR ADC are sensitive to supply noise.
+A switching regulator on the 3.3V rail would inject switching ripple at its operating
+frequency (hundreds of kHz) directly into the ADC reference and RF supply — degrading
+ADC accuracy and potentially increasing Wi-Fi packet error rate. An LDO has no switching
+element; its output noise floor is limited only by its PSRR and output capacitance,
+typically <50µVrms. The 1.7V dropout (5V→3.3V) means only P = 1.7 × 0.35 = 0.6W worst
+case — manageable on a small SOT-223 package without a heatsink.
 
 ```
 5V ──┬──[10µF]──┬──► VIN ┌─────────┐ VOUT ──┬──[10µF]──┬──► 3.3V
@@ -182,27 +221,28 @@ Why 1000µF?
                              GND
 ```
 
-### 1.5 12V Rail Bulk Capacitance (Motor Loads)
+### 1.5 24V Rail Bulk Capacitance (Motor Loads)
 
 ⚠️ **CRITICAL**: Brushless motor (AUBIG DC40-1250) requires substantial bulk capacitance for startup inrush
 
 ```
-12V Power Supply Filtering:
+24V Power Supply Filtering:
 
-12V_PSU ──┬──[2200µF]──┬──[100nF]──┬──► To MOSFET drivers
+24V_PSU ──┬──[2200µF]──┬──[100nF]──┬──► To MOSFET drivers
           │  (bulk)    │  (HF)     │
          ─┴─          ─┴─          ─┴─
          GND          GND          GND
+```
 
 Components:
-- C_bulk: 2200µF / 25V low-ESR electrolytic (Panasonic FR series or equivalent)
+- C_bulk: 2200µF / **50V** low-ESR electrolytic (Panasonic FR series or equivalent)
   * Purpose: Buffer motor startup inrush current (AUBIG DC40-1250: ~2A for 50-100ms)
   * Prevents voltage sag that could reset ESP32 or cause pump stall
-  * Place at 12V input near main pump MOSFET Q1
+  * Place at 24V input near main pump MOSFET Q1
 
 - C_hf: 100nF / 50V ceramic (X7R)
   * Purpose: High-frequency noise filtering from motor commutation
-  * Place near 12V input connector
+  * Place near 24V input connector
 
 Why 2200µF?
 - AUBIG brushless motor startup inrush: ~2A for 50-100ms (1.67× nominal 1.2A)
@@ -213,13 +253,14 @@ Why 2200µF?
 
 Additional Local Bypass Capacitors:
 - Place 100nF ceramic (0805, X7R, 50V) near each MOSFET (Q1-Q6)
-- Connects between 12V drain and GND
+- Connects between 24V drain and GND
 - Provides local energy storage for switching transients
-- Reduces high-frequency noise on 12V rail
+- Reduces high-frequency noise on 24V rail
 
-12V Distribution Layout:
+```
+24V Distribution Layout:
 ┌──────────────────────────────────────────────────────────┐
-│ 12V PSU                                                  │
+│ 24V PSU                                                  │
 │   │                                                      │
 │   ├─[2200µF]─[100nF]─┬─[100nF]─┬─► Q1 (Main Pump)      │
 │                       │         │                        │
@@ -234,9 +275,9 @@ Additional Local Bypass Capacitors:
 │                       └─[100nF]─┴─► Q6 (ATO Valve)      │
 │                                                          │
 └──────────────────────────────────────────────────────────┘
-
+```
 IMPORTANT Power Supply Selection:
-- Use PSU with built-in soft-start (Mean Well LRS-50-12 ✅)
+- Use PSU with built-in soft-start (Mean Well LRS-150-24 ✅)
 - Generic PSUs may trip overcurrent during capacitor charging + motor startup
 - Without soft-start: inrush can exceed 10A briefly (2.2mF × dV/dt)
 ```
@@ -248,7 +289,7 @@ IMPORTANT Power Supply Selection:
 1. **Star Ground Configuration:**
    ```
    ESP32 GND ──┐
-   Sensors GND ─┼──► Single ground point at 12V PSU GND terminal
+   Sensors GND ─┼──► Single ground point at 24V PSU GND terminal
    Pumps GND ───┘
 
    - Prevents ground loops and noise coupling
@@ -273,7 +314,7 @@ IMPORTANT Power Supply Selection:
    - Recommended: 30 mil (0.76mm)
    - Length: Keep <10cm from buck to ESP32
 
-   12V Rail (3A peak):
+   24V Rail (3.5A peak):
    - Minimum: 40 mil (1.0mm)
    - Recommended: 50 mil (1.27mm)  - Main pump branch: 60 mil (1.5mm)
    - Dosing pump branches: 30 mil (0.76mm)
@@ -291,14 +332,14 @@ IMPORTANT Power Supply Selection:
    ALTERNATIVE (for 4-layer board):
    - Layer 1 (Top): Signal + high-speed
    - Layer 2: Ground plane
-   - Layer 3: Power planes (3.3V, 5V, 12V pours)
+   - Layer 3: Power planes (3.3V, 5V, 24V pours)
    - Layer 4 (Bottom): Ground plane
    ```
 
 5. **Keep-Out Zones:**
    ```
    - ESP32 antenna area: No ground pour, no traces, no vias
-   - I2C traces: Route away from 12V pump power traces (>10mm separation)
+   - I2C traces: Route away from 24V pump power traces (>10mm separation)
    - Sensor analog signals: Shield with ground guard traces if near pump power
    ```
 
@@ -314,7 +355,7 @@ Symptom-Based Solutions:
    ✅ Solution: Add ferrite bead on 5V input to ESP32 (BLM18PG471SN1D)
 
 2. Erratic I2C sensor readings when pumps run:
-   ✅ Solution: Add ferrite beads on 12V pump power lines (BLM15HD182SN1)
+   ✅ Solution: Add ferrite beads on 24V pump power lines (BLM15HD182SN1)
    ✅ Solution: Use twisted-pair or shielded cable for pump connections
    ✅ Solution: Add RC snubber across pump terminals (10Ω + 100nF)
 
@@ -340,8 +381,8 @@ LAST RESORT - Optocoupler Isolation:
 |----------|-----------|-----|--------------|---------|
 | 5V buck output | 1000µF 10V electrolytic | 1 | Panasonic EEU-FR1A102 | ESP32 WiFi buffering |
 | 5V buck output | 100nF 16V ceramic | 1 | Generic X7R 0805 | HF filtering |
-| 12V PSU input | 2200µF 25V electrolytic | 1 | Panasonic EEU-FR1E222 | Motor startup buffering |
-| 12V PSU input | 100nF 50V ceramic | 1 | Generic X7R 0805 | HF filtering |
+| 24V PSU input | 2200µF **50V** electrolytic | 1 | Panasonic EEU-FR1E222 | Motor startup buffering |
+| 24V PSU input | 100nF 50V ceramic | 1 | Generic X7R 0805 | HF filtering |
 | Per MOSFET Q1-Q6 | 100nF 50V ceramic | 6 | Generic X7R 0805 | Local bypassing |
 | **Total** | | **10** | | **~$3-4 total** |
 
@@ -585,11 +626,11 @@ The [Wi-Fi Hydroponics Kit](https://atlas-scientific.com/kits/wi-fi-hydroponics-
 | DO sensor support | No | Yes |
 | Ultrasonic / float level sensing | No | Yes |
 | ESP32-C6 (Thread/Zigbee capable) | No (HUZZAH32) | Yes |
-| 12V power management | No | Yes |
+| 24V power management | No | Yes |
 | Open hardware | No | Yes |
 | Custom firmware | Limited (ThingSpeak) | Full control |
 
-The kit is a self-contained monitoring appliance, not a controller platform. It covers only pH, EC, and temperature — no DO, no actuation, and no 12V rail. The OPNhydro custom PCB is required to meet all system requirements.
+The kit is a self-contained monitoring appliance, not a controller platform. It covers only pH, EC, and temperature — no DO, no actuation, and no 24V rail. The OPNhydro custom PCB is required to meet all system requirements.
 
 **Total cost (circuits + probes):** ~$653 all three | ~$590 via kits | ~$394 pH + EC only (no DO)
 
@@ -1979,28 +2020,25 @@ FLOAT_HIGH (GPIO1):
 
 ## 7. Pump Driver Circuits
 
-> **✅ PROJECT DECISION:** Main circulation pump selected: **AUBIG DC40-1250**
+> ⚠️ **PENDING SELECTION:** Main circulation pump — **24V DC required** (system rail is 24V).
+> The AUBIG DC40-1250 (12V) is no longer suitable.
 >
-> **Selection Criteria:**
-> 1. **Price:** $12-18 (most affordable true 12V DC option)
-> 2. **PWM Control:** Native PWM support for variable flow rate control
-> 3. **Reliability:** Brushless motor, 30,000-50,000 hour lifespan
-> 4. **Compatibility:** True 12V DC input, works with existing MOSFET driver design
->
-> **Key Specifications:**
-> - Flow: 500-510 L/H (130-135 GPH)
-> - Current: 1.2A @ 12V (14.4W)
-> - PWM capable via GPIO10 (25 kHz recommended)
-> - Suitable for NFT, drip, and small-medium DWC systems
+> **Requirements for replacement:**
+> - Voltage: **24V DC**
+> - Flow: ≥500 L/H at operating head
+> - Head: ≥4m
+> - Brushless preferred (reliability)
+> - PWM-capable preferred for variable flow via Q1 MOSFET gate
+> - Barbed fittings preferred
 
-All pumps and the ATO valve use the same 12V rail and identical driver circuits.
+All pumps and the ATO valve use the same 24V rail and identical driver circuits.
 
-### 7.1 12V Main Pump Driver
+### 7.1 24V Main Pump Driver
 
 ```
-                                    12V
+                                    24V
                                      │
-                        ┌────────────┼────┬──── 12V rail
+                        ┌────────────┼────┬──── 24V rail
                         │            │    │
                         │           C2  ─┴─
                         │          100nF GND (local bypass)
@@ -2041,7 +2079,7 @@ When GPIO0 LOW  (water OK):  Q9 off      → Gate driven by GPIO10 normally
 C2: 100nF / 50V ceramic (X7R, 0805)
 - Local bypass capacitor for switching transients
 - Place within 5mm of Q1 DRAIN pin
-- Reduces high-frequency noise on 12V rail
+- Reduces high-frequency noise on 24V rail
 
 Q1: IRLR2905 (Logic-level N-MOSFET, DPAK/TO-252)
 - VDS = 55V, ID = 42A
@@ -2057,12 +2095,12 @@ D1: SS34 (3A Schottky flyback diode, SMC)
 
 **Main Pump Specifications:**
 
-Recommended 12V DC submersible pumps for hydroponic circulation:
+Recommended 24V DC submersible pumps for hydroponic circulation: (**Selection TBD — 24V equivalents required**)
 
 | Parameter | Specification | Notes |
 |-----------|---------------|-------|
-| **Voltage** | 12V DC ±10% | Matches system power rail |
-| **Current** | 1.0-1.5A typical | Within IRLR2905 capacity (42A) |
+| **Voltage** | **24V DC** | Matches system power rail |
+| **Current** | 0.5-0.75A typical at 24V | Within IRLR2905 capacity (42A) |
 | **Power** | 12-18W maximum | Current × voltage |
 | **Flow Rate** | 600-1000 L/H | 158-264 GPH |
 | **Head Height** | 2-3 meters | 6.5-10 feet max lift |
@@ -2073,12 +2111,11 @@ Recommended 12V DC submersible pumps for hydroponic circulation:
 
 **Recommended Pump Models:**
 
-**Option 1: AUBIG DC40-1250 Brushless Submersible Pump** ✅ **PRIMARY RECOMMENDATION**
+**Option 1: 24V Brushless Submersible Pump** ⚠️ **TBD — 24V equivalent required**
 
 **Electrical Specifications:**
-- Model: DC40-1250 (barbed fittings; DC40E-1250 is the NPT variant — currently in short supply)
-- Voltage: 12V DC nominal (11-13V operating range)
-- Current: 1.0-1.2A @ 12V
+- Voltage: **24V DC** (AUBIG DC40-1250 was 12V and is no longer suitable)
+- Current: ~0.6-0.75A @ 24V (equivalent power ~14-18W)
 - Power: 14.4W maximum
 - Motor: Brushless DC (BLDC) with magnetic drive coupling
 
@@ -2101,7 +2138,7 @@ Recommended 12V DC submersible pumps for hydroponic circulation:
 - ✅ **0-5V Analog Control**: Alternative speed control via analog voltage
 - ✅ **Solar Compatible**: Can run directly from 12V battery/solar systems
 - ✅ **Magnetic Drive**: No shaft seal = leak-proof, maintenance-free
-- ✅ **Low Voltage Safety**: 12V DC eliminates shock hazard
+- ⚠️ **Voltage Safety**: 24V DC — low-voltage shock risk is minimal but use appropriate wire ratings
 - ✅ **Soft Start**: Brushless controller reduces inrush current
 
 **Cost & Availability:**
@@ -2121,7 +2158,7 @@ Recommended 12V DC submersible pumps for hydroponic circulation:
 
 **PWM Speed Control Implementation:**
 
-The AUBIG DC40-1250 supports PWM speed control via the 12V power input. The ESP32-S3 can generate PWM on GPIO10 to modulate the MOSFET gate, providing variable pump speed:
+The main pump supports PWM speed control via the 24V power input. The ESP32-S3 can generate PWM on GPIO10 to modulate the MOSFET gate, providing variable pump speed:
 
 ```
 PWM Duty Cycle vs Flow Rate (typical):
@@ -2150,7 +2187,7 @@ Benefits of PWM Control:
 ⚠️ **CRITICAL**: User reviews emphasize stable, adequate power supply is essential for reliability.
 
 ```
-12V Power Supply Specification:
+24V Power Supply Specification:
 - Voltage: 12V DC ±5% regulation (11.4V - 12.6V)
 - Current capacity: 2A minimum per pump (1.2A × 1.5 safety factor)
 - Ripple voltage: <100mV p-p (brushless motor sensitive to noise)
@@ -2182,7 +2219,7 @@ Recommended Power Supplies:
 - ✅ Proven in hydroponics and aquariums
 
 **Cons:**
-- ⚠️ Sensitive to power quality (needs stable 12V, low ripple)
+- ⚠️ Sensitive to power quality (needs stable 24V, low ripple)
 - ⚠️ Lower flow than AC pumps (130 GPH vs 400 GPH)
 - ⚠️ Quality control varies (check reviews before purchase)
 - ⚠️ Must run submerged (cannot self-prime)
@@ -2241,13 +2278,13 @@ Pump Side Connection Options:
 
 **PCB Layout Notes:**
 - Place screw terminal at board edge for easy access
-- 12V trace width: 50 mil (1.27mm) minimum for main pump
+- 24V trace width: 50 mil (1.27mm) minimum for main pump
 - Keep Q1 and screw terminal close to minimize trace resistance
-- Add test points for 12V_SWITCHED and GND for diagnostics
+- Add test points for 24V_SWITCHED and GND for diagnostics
 - **C2 (100nF bypass)**: Place within 5mm of Q1 DRAIN pin for best performance
 ```
 
-### 7.2 12V Dosing Pump Drivers — TMC2209 Stepper (×3)
+### 7.2 24V Dosing Pump Drivers — TMC2209 Stepper (×3)
 
 > **Design decision — Stepper over DC motor, and Nutrient A/B on separate channels:**
 > DC peristaltic pumps require periodic flow-rate calibration; stepper-driven pumps dose
@@ -2261,7 +2298,7 @@ peristaltic pump. All drivers operate in **UART mode** via GPIO21/22 (ESP32-C6 U
 StealthChop2 is active by default at the low step rates used for dosing.
 
 **TMC2209 UART Configuration:**
-- PDN_UART: 100Ω series resistor to shared UART bus (GPIO22 TX / GPIO21 RX)
+- PDN_UART: 100Ω series resistor to shared UART bus. GPIO22 TX → bus via 1kΩ; GPIO21 RX → bus direct
 - MS1/MS2: set UART address per driver (see address table below)
 - EN: tied to GND — drivers permanently enabled; standstill current eliminated via `IHOLD=0`
 - DIR: hardwired to 3.3V — peristaltic pumps never need reversal
@@ -2291,27 +2328,29 @@ StealthChop2 is active by default at the low step rates used for dosing.
 ESP32 GPIO22 (TX) ──── 1kΩ ──┐
                               ├── shared bus node
 ESP32 GPIO21 (RX) ────────────┘        │
-    (direct tap — receives TX echo      │
-     and TMC2209 responses)        100Ω ├──── U5 PDN_UART
-                                   100Ω ├──── U6 PDN_UART
-                                   100Ω └──── U7 PDN_UART
+                                  100Ω ├──── U5 PDN_UART
+                                  100Ω ├──── U6 PDN_UART
+                                  100Ω └──── U7 PDN_UART
 ```
 
-GPIO21 (RX) connects directly to the bus node — no series resistor. It receives both the
-TX echo and the TMC2209 response. Configure ESP32-C6 UART1 in **half-duplex / single-wire
-mode** so the TX echo is suppressed in hardware, or discard the leading echo bytes in
-firmware before parsing the driver reply.
+> **⚠ Critical Wiring Detail — The UART Resistor (per TMC2209 datasheet §4.3)**
+> Connect ESP32 TX to the TMC2209 PDN_UART bus through a **1kΩ series resistor**.
+> Connect ESP32 RX **directly** to the same PDN_UART bus node — no resistor on RX.
+> The 1kΩ goes on the **TX line**, not the RX line.
+> Source: [TMC2209 Datasheet Rev 1.09, §4.3 UART Signals](https://www.analog.com/media/en/technical-documentation/data-sheets/tmc2209_datasheet_rev1.09.pdf)
 
 **1kΩ on GPIO22 TX:**
-The TMC2209 PDN_UART pin is open-drain — the driver pulls the bus LOW to send its
-response, then releases it. GPIO22 drives the bus HIGH during transmit. When both the
-ESP32 TX (HIGH) and a responding driver (open-drain LOW) are active simultaneously at
-the moment the response begins, without a series resistor the two would fight directly,
-drawing excessive current through the ESP32 output stage. The 1kΩ turns this into a
-controlled voltage divider (~3.3V × R_driver_LOW / (1kΩ + R_driver_LOW)), limiting
-current to a safe level while still producing a readable logic LOW on the bus.
-It also softens the impedance seen by GPIO21 RX when TX is driving HIGH, protecting
-the RX input from being overdriven.
+PDN_UART is an open-drain bidirectional pin. When the ESP32 TX drives HIGH to send a
+command, and the TMC2209's open-drain output momentarily pulls the bus LOW to begin
+its response (a brief overlap before software tri-states TX), a low-impedance conflict
+occurs between TX driving HIGH and the open-drain pulling LOW. The 1kΩ on TX limits
+the fault current during this window to (3.3V / 1kΩ) = 3.3 mA — safe for both the
+ESP32 output driver and the TMC2209 PDN_UART. RX is connected directly because it
+is a high-impedance input that only monitors the bus voltage; no protection is needed.
+
+Configure ESP32-C6 UART1 in **half-duplex / single-wire mode** so TX is tri-stated
+(high-impedance) during the receive window. The TMC2209 then pulls the bus LOW
+open-drain to transmit its response, with no conflict from TX.
 
 **100Ω on each PDN_UART pin:**
 All three drivers share the same bus node. When one driver responds, its open-drain
@@ -2325,15 +2364,15 @@ path between drivers if two open-drain outputs are momentarily both active.
 **Circuit (same topology for U5/U6/U7 — MS1/MS2 differ per address table):**
 
 ```
-                12V (VM)
+                24V (VM)
                    │
            ┌───┬──┴──┬───┐
            │   │     │   │
-         47µF 100nF ─┴─  │     ← bulk + local bypass per driver
+        100µF 100nF ─┴─  │     ← 100µF bulk + 100nF local bypass per driver
            │   │    GND  │
            └───┴─────────┤
                      VM  │
-              ┌──────────┴──────────┐
+              ┌──────────┴───────────┐
  3.3V ───────►│ VIO                  │
  GND ────────►│ GND                  │
               │                      │
@@ -2341,7 +2380,7 @@ path between drivers if two open-drain outputs are momentarily both active.
  3.3V ───────►│ DIR           OA2 ───┼──► coil A-
   GND ───────►│ EN            OB1 ───┼──► coil B+
               │               OB2 ───┼──► coil B-
-UART bus─100Ω►│ PDN_UART             │   ← bus = GPIO22─1kΩ─┤; 100Ω isolates each node
+UART bus─100Ω►│ PDN_UART             │   ← bus: GPIO22─1kΩ─┤; GPIO21 direct; 100Ω isolates each driver
   MS1* ──────►│ MS1           BRA ───┼──── 220mΩ ──── GND   ← RSENSE: 1%, 1/4W 0805
   MS2* ──────►│ MS2           BRB ───┼──── 220mΩ ──── GND   ← 1/8W insufficient at full scale
   GND ───────►│ SPREAD               │
@@ -2359,8 +2398,8 @@ UART bus─100Ω►│ PDN_UART             │   ← bus = GPIO22─1kΩ─┤;
 GPIO11 ──► STEP_PH_DN  (U5 pH Down driver STEP)
 GPIO15 ──► STEP_NUT_A  (U6 Nutrient A driver STEP)
 GPIO19 ──► STEP_NUT_B  (U7 Nutrient B driver STEP)
-GPIO21 ──► TMC2209_UART_RX  (UART1 RX — shared bus listen)
-GPIO22 ──► TMC2209_UART_TX  (UART1 TX — shared bus drive, 1kΩ series)
+GPIO21 ──► TMC2209_UART_RX  (UART1 RX — shared bus listen, direct connection)
+GPIO22 ──► TMC2209_UART_TX  (UART1 TX — shared bus drive, 1kΩ series to bus)
 GPIO20 ──  (available — STEPPER_EN not needed; EN tied to GND)
 ```
 
@@ -2419,6 +2458,14 @@ RSENSE error is directly proportional to current error — 1% tolerance is requi
 | `IRUN` | 18 | Run current ≈ 0.75A (18/31 × full-scale with RSENSE=220mΩ, VREF=0.58V) |
 | `IHOLDDELAY` | 6 | Steps between IRUN→IHOLD transition after last STEP pulse |
 | `TPWMTHRS` | 0 | StealthChop2 active at all speeds |
+| `SENDDELAY` | ≥2 | **Required for multi-driver bus.** Reply delay before TMC2209 begins its UART response. Default (0) can cause a non-addressed chip to detect a transmission error when a different chip responds. Set to 2 or higher on all drivers. See note below. |
+
+> **⚠ Multi-driver SENDDELAY note**
+> When multiple TMC2209 chips share the same serial line with different addresses, the
+> `SENDDELAY` register must be increased from its default value, otherwise a non-addressed
+> chip may detect a transmission error when it sees the response from the addressed chip.
+> Set `SENDDELAY` ≥ 2 on every driver at firmware init.
+> Source: [janelia-arduino/TMC2209 library README](https://github.com/janelia-arduino/TMC2209)
 
 **DIAG pin:**
 Active-HIGH open-drain output. Asserts (goes HIGH) when StallGuard4 detects a motor
@@ -2446,11 +2493,81 @@ output, no harm). Place a DNP 1kΩ series + test point footprint for debugging i
 with 100kΩ to 3.3V; set MS1/MS2 both to 3.3V (1/16 microstep, addr unused); connect
 EN to GPIO20. Current then set by VREF divider only. StealthChop2 remains active.
 
+**VM Bulk Capacitance:**
+Place at least one **100µF electrolytic capacitor** (≥35V, low-ESR) close to each
+driver's VM pin. The TMC2209 chopper switches coil current rapidly — each switching
+event draws a brief spike from the VM supply. Without local bulk capacitance these
+spikes appear as voltage transients on the VM rail, which can corrupt UART communication
+(if the supply dips below the VIO logic threshold briefly) and degrade StallGuard4
+accuracy (coil current measurement depends on a stable VM). A 100nF ceramic (already
+in the circuit) handles high-frequency transients; the 100µF electrolytic handles the
+lower-frequency, higher-energy spikes from step-rate switching. Place the 100µF within
+5mm of the VM pin, with a short direct trace to GND.
+
+**Firmware — TMCStepper Library:**
+
+Use **[TMCStepper](https://github.com/teemuatlut/TMCStepper)** for all TMC2209 driver
+configuration and status monitoring. It provides full UART register access: write
+IRUN=18, IHOLD=0, IHOLDDELAY=6, TPWMTHRS=0 at startup; read DRV_STATUS.SG_RESULT and
+temperature flags during operation. No alternative library provides this capability.
+
+**Firmware — STEP Pulse Generation (RMT / LEDC / ISR Timer):**
+
+STEP pulses must be generated by hardware peripherals, not software loops.
+
+If the ESP32 is busy with a Wi-Fi request, SSL/TLS handshake, or MQTT reconnect, a
+software-timed pulse loop can stall for tens of milliseconds. A single missed or late
+pulse causes the stepper to lose a step — and since dosing accuracy is derived from
+step count × tube displacement constant, one lost step per dose accumulates into
+measurable calibration error over time.
+
+The ESP32-C6 provides three suitable hardware options:
+
+**Option 1 — RMT (Remote Control Transceiver) — recommended:**
+The RMT peripheral generates arbitrary pulse sequences from a preloaded buffer with
+nanosecond resolution, independent of the CPU. Configure it to output N pulses at the
+target step frequency, then trigger it once per dose. When the burst completes it fires
+a done interrupt; the CPU core is free throughout.
+
+```
+// Pseudocode — ESP-IDF RMT approach
+rmt_config_t cfg = { .gpio_num = STEP_PH_DN, .clk_src = RMT_CLK_SRC_DEFAULT };
+rmt_channel_handle_t ch;
+rmt_new_tx_channel(&cfg, &ch);
+// preload N symbols: 50% duty, period = 1/step_freq
+rmt_transmit(ch, encoder, symbols, n_steps, NULL);
+// CPU is free; RMT fires done callback when burst finishes
+```
+
+Supports up to 4 independent TX channels on ESP32-C6 → one per STEP pin (GPIO11,
+GPIO15, GPIO19) with one spare.
+
+**Option 2 — LEDC (LED PWM Controller):**
+LEDC generates continuous PWM at hardware level. For dosing, drive LEDC at the target
+step frequency and disable it after counting the required pulses via a GPIO interrupt
+on the STEP line, or use a one-shot approach: enable LEDC, start a hardware timer for
+N/freq seconds, disable LEDC in the timer callback. Less precise step count than RMT
+(off-by-one at stop edge possible) but simpler to configure.
+
+**Option 3 — ESP32_ISR_Stepper / ESP32TimerInterrupt:**
+The [ESP32TimerInterrupt](https://github.com/khoih-prog/ESP32TimerInterrupt) library
+configures hardware timer ISRs that run independently of the main loop and Wi-Fi
+stack. Use with `ESP32_ISR_Timer` in non-blocking mode: the ISR toggles the STEP GPIO
+at the target rate and decrements a step counter; when it reaches zero the ISR
+disables itself. All three pump channels require separate hardware timer instances
+(ESP32-C6 has 2 hardware timer groups × 2 timers each = 4 timers available).
+
+**Recommendation for OPNhydro:**
+Use **RMT** as the primary approach. It is the most deterministic, requires no ISR
+management, and the burst-complete callback integrates cleanly with an ESPHome custom
+component or FreeRTOS task. Use `ESP32TimerInterrupt` as a fallback if the RMT
+peripheral is needed for other functions (e.g. WS2812B LED strip).
+
 **Dosing Pump — Kamoer KAS SF-12V:**
 
 | Parameter | Specification |
 |-----------|---------------|
-| Voltage | 12V |
+| Voltage | 24V VM (TMC2209 regulated) |
 | Current | 0.75A |
 | Flow rate | ~11.5–71.5 mL/min (3-rotor, speed-dependent) |
 | Tubing | 3mm ID × 5mm OD, silicone or BPT |
@@ -2473,7 +2590,7 @@ PHR-6 Pin Assignment (verify against datasheet before assembly):
 ┌─────┬──────────────────────────────────────────────────────┐
 │ Pin │ Signal         │ PCB connection                      │
 ├─────┼────────────────┼─────────────────────────────────────┤
-│  1  │ VCC (12V)      │ 12V rail (motor power)              │
+│  1  │ VCC (24V VM)   │ 24V rail (motor power)              │
 │  2  │ GND            │ GND                                 │
 │  3  │ Coil A+  (OA1) │ TMC2209 OA1                         │
 │  4  │ Coil A−  (OA2) │ TMC2209 OA2                         │
@@ -2502,10 +2619,10 @@ JST S6B-PH-K-S (6-position PH male header, 2.0mm pitch, right-angle TH, PCB moun
 
 ```
 Same circuit topology as dosing pumps, using AO3400A MOSFET.
-Connected to 12V rail.
+Connected to 24V rail.
 Uses normally-closed (NC) solenoid valve for fail-safe operation.
 
-                                    12V
+                                    24V
                                      │
                         ┌────────────┤
                         │            │
@@ -2558,7 +2675,7 @@ D1: 1N5819 (1A Schottky flyback diode, SOD-123)
 | Parameter | Specification | Notes |
 |-----------|---------------|-------|
 | **Type** | Normally Closed (NC) | Fail-safe: valve closes on power loss |
-| **Voltage** | 12V DC | Matches system power rail |
+| **Voltage** | 24V DC | Matches system power rail |
 | **Current** | 300-500mA typical | Within AO3400A capacity (5.8A) |
 | **Power** | 4-6W | Coil power consumption |
 | **Pressure** | 0-0.8 MPa (0-116 PSI) | Typical municipal water pressure |
@@ -2569,11 +2686,11 @@ D1: 1N5819 (1A Schottky flyback diode, SOD-123)
 
 **Recommended Solenoid Valve Models:**
 
-**✅ Recommended: DIGITEN DC 12V 1/4" NC Quick-Connect**
+**✅ Recommended: DIGITEN DC 24V 1/4" NC Quick-Connect** *(or equivalent 24V NC valve)*
 - Model: DIGITEN K170403
 - Port: 1/4" quick-connect (fits standard 1/4" OD tubing directly — no NPT adapter needed)
 - Type: Direct-acting, zero-pressure rated (works on gravity-fed top-off tanks)
-- Current: ~400mA @ 12V DC (4.8W)
+- Current: ~200mA @ 24V DC (4.8W)
 - Material: Food-grade plastic body, NBR seal
 - Pressure: 0–0.5 MPa (0–72 PSI)
 - Cost: ~$10
@@ -2581,7 +2698,7 @@ D1: 1N5819 (1A Schottky flyback diode, SOD-123)
 
 > **Why not the 2V025-08 (ANGGREK/AirTAC)?** The 2V025 is a pneumatic valve (designed for air/gas) with an anodized aluminum body. It functions for clean water short-term but is not rated for continuous liquid service. Brass or food-grade plastic bodies are more appropriate for water ATO.
 
-**Alternative: U.S. Solid 1/4" NC Nylon 12V** (~$15–20)
+**Alternative: U.S. Solid 1/4" NC Nylon 24V** (~$15–20)
 - Direct-acting, NPT threads, water-specific design
 - Lower power than U.S. Solid brass model (~350mA)
 - Best for: Installations needing NPT fittings and known-brand sourcing
@@ -2598,11 +2715,11 @@ D1: 1N5819 (1A Schottky flyback diode, SOD-123)
 Phoenix Contact MC 1.5/2-ST-3.5 (2-position pluggable screw terminal)
 - Pitch: 3.5mm — same family as dosing pump connectors
 - PCB header: MC 1.5/2-G-3.5
-- Wire size: 24-18 AWG (for 500mA @ 12V)
+- Wire size: 24-18 AWG (for 250mA @ 24V)
 - Label silkscreen: "ATO VALVE" or "WATER IN"
 
 Pin Assignment:
-Pin 1: 12V_VALVE (switched via Q8)
+Pin 1: 24V_VALVE (switched via Q8)
 Pin 2: GND
 
 Valve Side Connection:
@@ -2674,7 +2791,7 @@ Valve Side Connection:
 | **pH Down Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ BPT tubing, premium build |
 | **Nutrient A Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ BPT tubing, premium build |
 | **Nutrient B Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ BPT tubing, premium build |
-| **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403, 1/4" QC, 12V 400mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
+| **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403-24V, 1/4" QC, 24V ~200mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
 | **Main Pump Connector** | 1 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $0.50 | 5.08mm pitch — incompatible with dosing |
 | **Dosing + ATO Connectors** | 5 | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | $0.40 | $2 | 3.5mm pitch — incompatible with main pump |
 | | | | | **Subtotal:** | **$110** | ✅ Recommended configuration |
@@ -2705,7 +2822,7 @@ Valve Side Connection:
 |-----------|-----|------|----------------|-----------|-------|-------|
 | **Main Circulation Pump** | 1 | Brushless | AUBIG DC40-1250, 510L/H, 12V 1.2A | $12-18 | $15 | ✅ PWM capable, proven reliable |
 | **Dosing Pumps (×4)** | 4 | Peristaltic | Generic 50-100mL/min, 12V 300mA | $8-15 | $40 | Budget option, silicone tubing |
-| **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403, 1/4" QC, 12V 400mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
+| **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403-24V, 1/4" QC, 24V ~200mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
 | **Main Pump Connector** | 1 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $0.50 | 5.08mm pitch — incompatible with dosing |
 | **Dosing + ATO Connectors** | 5 | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | $0.40 | $2 | 3.5mm pitch — incompatible with main pump |
 | | | | | **Subtotal:** | **$70** | Minimum viable, lower reliability |
@@ -2718,10 +2835,10 @@ Valve Side Connection:
 |-----------|-----|------|----------------|-----------|-------|-------|
 | **Main Circulation Pump** | 1 | Brushless | AUBIG DC40-1250, 510L/H, 12V 1.2A | $12-18 | $15 | ✅ PWM capable, proven reliable |
 | **Dosing Pumps (×4)** | 4 | Peristaltic | Kamoer KDS-FE-2-S17B | $30-50 | $160 | Stepper motor, ±1% accuracy |
-| **ATO Solenoid Valve** | 1 | NC Solenoid | U.S. Solid 1/4" NC Brass/Viton, 12V ~1.17A | $20-30 | $25 | IP65, direct-acting — note: 14W coil, update power budget |
+| **ATO Solenoid Valve** | 1 | NC Solenoid | U.S. Solid 1/4" NC Brass/Viton, 24V ~0.6A | $20-30 | $25 | IP65, direct-acting — note: 14W coil, update power budget |
 | **Main Pump Connector** | 1 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $0.50 | 5.08mm pitch — incompatible with dosing |
 | **Dosing + ATO Connectors** | 5 | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | $0.40 | $2 | 3.5mm pitch — incompatible with main pump |
-| **12V Power Supply** | 1 | Regulated | Mean Well LRS-50-12 (50W, 4.2A) | $15-20 | $18 | Low ripple for brushless motor |
+| **24V Power Supply** | 1 | Regulated | Mean Well LRS-150-24 (50W, 4.2A) | $15-20 | $18 | Low ripple for brushless motor |
 | | | | | **Subtotal:** | **$221** | Professional/commercial grade |
 
 **For Large Systems (50+ gal DWC/Ebb & Flow):**
@@ -2731,7 +2848,7 @@ Valve Side Connection:
 | **Main Circulation Pump** | 1 | Submersible | Generic 800L/H, 12V 1.5A | $15-25 | $20 | Higher flow, no PWM |
 | OR: **Dual AUBIG Pumps** | 2 | Brushless | AUBIG DC40-1250 (parallel) | $12-18 | $30 | 1000L/H total, redundant |
 | **Dosing Pumps (×4)** | 4 | Peristaltic | Generic 50-100mL/min | $8-15 | $48 | Budget peristaltic |
-| **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403, 1/4" QC, 12V 400mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
+| **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403-24V, 1/4" QC, 24V ~200mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
 | **Main Pump Connector** | 1 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $0.50 | 5.08mm pitch — incompatible with dosing |
 | **Dosing + ATO Connectors** | 5 | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | $0.40 | $2 | 3.5mm pitch — incompatible with main pump |
 | | | | | **Subtotal:** | **$83-113** | Budget, higher flow rate |
@@ -2740,12 +2857,12 @@ Valve Side Connection:
 
 | Location | Connector | Part Number | Pitch | Pins | Purpose |
 |----------|-----------|-------------|-------|------|---------|
-| J? (Main Pump) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | **5.08mm** | 2 | 12V switched + GND |
-| J? (pH Up) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 12V switched + GND |
-| J? (pH Down) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 12V switched + GND |
-| J? (Nutrient A) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 12V switched + GND |
-| J? (Nutrient B) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 12V switched + GND |
-| J? (ATO Valve) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 12V switched + GND |
+| J? (Main Pump) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | **5.08mm** | 2 | 24V switched + GND |
+| J? (pH Up) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 24V switched + GND |
+| J? (pH Down) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 24V switched + GND |
+| J? (Nutrient A) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 24V switched + GND |
+| J? (Nutrient B) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 24V switched + GND |
+| J? (ATO Valve) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 24V switched + GND |
 
 > **Misconnection prevention:** The 5.08mm main pump plug physically cannot be inserted
 > into a 3.5mm dosing pump header, and vice versa. No silkscreen label required for safety,
@@ -2757,11 +2874,11 @@ Valve Side Connection:
 - **Wire gauge:** 18 AWG for main pump AUBIG DC40-1250 (1.2A, <1% drop @ 3ft)
 - **Wire type:** Stranded copper, 300V rated minimum
 - **Insulation:** PVC or silicone (silicone preferred for flexibility)
-- **Color code:** Red = +12V switched, Black = GND
+- **Color code:** Red = +24V switched, Black = GND
 - **Recommended:** Use ferrule crimps for screw terminal connections (prevents strand fraying)
 - **Critical:** For AUBIG pump, keep wire runs short (<3ft) and use quality connectors to minimize voltage drop
 
-**Total System Power Budget (12V rail):**
+**Total System Power Budget (24V rail):**
 
 | Load | Current | Power | Duty Cycle | Avg Power | Notes |
 |------|---------|-------|------------|-----------|-------|
@@ -2774,7 +2891,7 @@ Valve Side Connection:
 | **Peak Total** | **2.8A** | **33.6W** | If all run simultaneously | - | Rare condition |
 | **Typical Avg** | **~1.3A** | **~15W** | Normal operation | - | Main pump only |
 
-**12V Power Supply Recommendation:**
+**24V Power Supply Recommendation:**
 
 ⚠️ **CRITICAL for AUBIG DC40-1250**: Brushless motor requires stable, low-ripple DC power supply.
 
@@ -2788,13 +2905,13 @@ Valve Side Connection:
 | **Use Case** | Budget (no PWM) | Standard (PWM OK) | Professional |
 
 **Recommended Power Supply Models:**
-- **Mean Well LRS-50-12** (50W, 4.2A) - $15-20, low ripple, reliable
+- **Mean Well LRS-150-24** (50W, 4.2A) - $15-20, low ripple, reliable
 - **Mean Well RS-75-12** (75W, 6A) - $20-30, DIN rail mount option
 - **TDK-Lambda LS50-12** (50W, 4.2A) - $25-35, medical grade, ultra-low ripple
 - **Generic 12V 5A "switching adapter"** - $10-15, acceptable if low ripple verified
 
 **Power Supply Notes:**
-1. ⚠️ **Avoid cheap "12V 5A" adapters** - high ripple can cause AUBIG pump motor jitter/noise
+1. ⚠️ **Avoid cheap "24V" adapters** - high ripple can cause AUBIG pump motor jitter/noise
 2. Verify ripple voltage with oscilloscope if using generic power supply
 3. Add 470µF-1000µF bulk capacitor near pump connector if ripple >100mV
 4. Use 18 AWG wire minimum from PSU to PCB (for <1% voltage drop)
@@ -2841,13 +2958,59 @@ I2C Address: 0x3C (default)
 3. Keep analog (I2C sensors) away from switching circuits
 4. Keep 40mm clearance around ESP32-C6 antenna (no copper on top layer)
 
-### 10.3 Connector Placement
+### 10.3 Trace Width — IPC-2221 Standard
+
+Trace width is calculated using the IPC-2221 empirical formula for external conductors:
+
+```
+I = k × ΔT^0.44 × A^0.725
+
+Where:
+  I   = current (A)
+  k   = 0.048 (external/outer layer)  |  0.024 (internal layer)
+  ΔT  = allowable temperature rise above ambient (°C)
+  A   = cross-sectional area (mil²)  =  width_mil × thickness_mil
+  thickness: 1oz copper = 1.37 mil  |  2oz copper = 2.74 mil
+```
+
+All values below use **ΔT = 10°C** (conservative; IPC-2221 permits 20°C for most PCB classes).
+
+#### External Layer (k = 0.048)
+
+| Net | Current | 1oz Cu (min width) | 2oz Cu (min width) | Notes |
+|-----|---------|--------------------|--------------------|-------|
+| 24V input (PSU→TVS→RPP) | 6.5 A | **158 mil (4.0 mm)** | **79 mil (2.0 mm)** | Use 2oz or copper pour |
+| 24V main pump | ~1.0 A | 12 mil (0.30 mm) | 6 mil (0.15 mm) | Brushless pump |
+| 24V dosing bus | 2.25 A total (3×0.75 A) | 37 mil (0.94 mm) | 19 mil (0.48 mm) | 3 steppers |
+| 24V ATO valve | 0.3 A | 4 mil (0.10 mm) | 2 mil (0.05 mm) | Use 8 mil min for fab |
+| 5V rail (post-buck) | 3.0 A | 55 mil (1.40 mm) | 28 mil (0.71 mm) | TPS62933 output |
+| 3.3V rail (post-LDO) | 1.0 A | 12 mil (0.30 mm) | 6 mil (0.15 mm) | AMS1117 output |
+| Stepper coil (per phase) | 0.75 A | 8 mil (0.20 mm) | 6 mil (0.15 mm) | TMC2209 OA1/OA2/OB1/OB2 |
+
+#### Practical Minimums
+
+| Rule | Value |
+|------|-------|
+| Minimum trace width (most fabs) | 6 mil (0.15 mm) |
+| Recommended minimum (signal) | 8 mil (0.20 mm) |
+| 24V input trace — recommended | **2oz copper pour or 4.0 mm trace** |
+| 5V rail — recommended | 1.5 mm trace or copper pour on both layers |
+
+#### Summary Recommendations
+
+- **24V input net**: Use 2oz copper or a filled pour; 1oz at 4 mm trace is acceptable but borderline.
+- **5V rail**: 1.5 mm at 2oz or 3 mm at 1oz. Route short and direct from buck output cap.
+- **Dosing bus (24V, 2.25 A shared)**: 1 mm at 1oz is adequate per branch (each branch 0.75 A = 8 mil); the shared trunk before branching should be 37 mil (0.94 mm) at 1oz.
+- **Signal traces (UART, I2C, STEP, DIR, EN)**: 8 mil minimum; no special width requirement.
+- **BNC/probe connections**: match to probe input impedance (50Ω trace for RF, not applicable here — use 8 mil minimum).
+
+### 10.4 Connector Placement
 - Power input on one edge
 - Pump outputs grouped together
 - BNC connectors on opposite edge from power
 - USB-C accessible for programming
 
-### 10.4 Thermal Considerations
+### 10.5 Thermal Considerations
 - Add thermal vias under MOSFET source pads
 - Use large copper pours for heatsinking
 - Consider heatsinks on MOSFETs if continuous pump operation
@@ -2859,7 +3022,7 @@ I2C Address: 0x3C (default)
 Add test points for debugging:
 - TP1: 3.3V
 - TP2: 5V
-- TP3: 12V
+- TP3: 24V
 - TP4: GND
 - TP5: I2C SDA
 - TP6: I2C SCL
