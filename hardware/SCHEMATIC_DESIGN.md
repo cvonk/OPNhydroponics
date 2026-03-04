@@ -383,7 +383,7 @@ USB-C, boot/reset buttons, antenna, and power regulation are on the DevKit.
      (reserved) ────┤ GPIO17 (CP2102N UART0 RX from CP)   │
    (available) ─────┤ GPIO18 (available)                  │
     STEP_NUT_B ─────┤ GPIO19 (output)                     │
-   STEPPER_EN ──────┤ GPIO20 (output)                     │
+   (available) ─────┤ GPIO20 (available)                  │
                     │                                     │
 TMC2209_UART_RX ───┤ GPIO21 (input)                      │
 TMC2209_UART_TX ───┤ GPIO22 (output)                     │
@@ -2257,16 +2257,72 @@ Pump Side Connection Options:
 > Cost delta vs combined channel: ~$3 (one TMC2209). See ARCHITECTURE.md §2 and §8.
 
 Three TMC2209 stepper drivers (QFN-28) each drive one Kamoer KAS SF-12V bipolar stepper
-peristaltic pump. All drivers operate in standalone mode (no UART). StealthChop2 is active
-by default at the low step rates used for dosing.
+peristaltic pump. All drivers operate in **UART mode** via GPIO21/22 (ESP32-C6 UART1).
+StealthChop2 is active by default at the low step rates used for dosing.
 
-**TMC2209 Standalone Configuration (same for all 3 drivers):**
-- MS1 = 3.3V, MS2 = 3.3V → 1/16 microstepping (internally interpolated to 1/256)
-- PDN_UART = 100kΩ to 3.3V → standalone mode (power-down via UART disabled)
-- SPREAD = GND → StealthChop2 mode (silent)
-- RSENSE = 220mΩ (sets full-scale current reference)
-- VREF: resistor divider from 3.3V → ~0.75A peak motor current
-- DIAG: 10kΩ pullup to 3.3V; leave unconnected in v1
+**TMC2209 UART Configuration:**
+- PDN_UART: 100Ω series resistor to shared UART bus (GPIO22 TX / GPIO21 RX)
+- MS1/MS2: set UART address per driver (see address table below)
+- EN: tied to GND — drivers permanently enabled; standstill current eliminated via `IHOLD=0`
+- DIR: hardwired to 3.3V — peristaltic pumps never need reversal
+- SPREAD: GND → StealthChop2 mode (silent)
+- RSENSE: 220mΩ — sets full-scale current reference with VREF
+- VREF: resistor divider from 3.3V → ~0.58V → full-scale ~1.32A; IRUN register scales to 0.75A
+- STDBY (pin 20): HIGH = standby (internal regulator off, all UART registers reset to defaults);
+  LOW = normal operation. **Tied to GND** — OPNhydro runs continuously; IHOLD=0 handles
+  standstill power saving without the register-reset complication of STDBY.
+  ⚠ If STDBY is ever asserted, all UART registers (IRUN, IHOLD, IHOLDDELAY, TPWMTHRS…)
+  must be re-written by firmware after wake-up. EN must be HIGH and VREF driven to 0V
+  before asserting STDBY.
+- DIAG: active-HIGH output; asserts when StallGuard4 detects a stall or a driver error; see below
+- INDEX: pulse output; see below
+
+**UART address wiring (MS1/MS2 per driver):**
+
+| Driver | MS1 | MS2 | Address |
+|--------|-----|-----|---------|
+| U5 pH Down | GND | GND | 0 |
+| U6 Nut A | 3.3V | GND | 1 |
+| U7 Nut B | GND | 3.3V | 2 |
+
+**UART bus wiring:**
+
+```
+ESP32 GPIO22 (TX) ──── 1kΩ ──┐
+                              ├── shared bus node
+ESP32 GPIO21 (RX) ────────────┘        │
+    (direct tap — receives TX echo      │
+     and TMC2209 responses)        100Ω ├──── U5 PDN_UART
+                                   100Ω ├──── U6 PDN_UART
+                                   100Ω └──── U7 PDN_UART
+```
+
+GPIO21 (RX) connects directly to the bus node — no series resistor. It receives both the
+TX echo and the TMC2209 response. Configure ESP32-C6 UART1 in **half-duplex / single-wire
+mode** so the TX echo is suppressed in hardware, or discard the leading echo bytes in
+firmware before parsing the driver reply.
+
+**1kΩ on GPIO22 TX:**
+The TMC2209 PDN_UART pin is open-drain — the driver pulls the bus LOW to send its
+response, then releases it. GPIO22 drives the bus HIGH during transmit. When both the
+ESP32 TX (HIGH) and a responding driver (open-drain LOW) are active simultaneously at
+the moment the response begins, without a series resistor the two would fight directly,
+drawing excessive current through the ESP32 output stage. The 1kΩ turns this into a
+controlled voltage divider (~3.3V × R_driver_LOW / (1kΩ + R_driver_LOW)), limiting
+current to a safe level while still producing a readable logic LOW on the bus.
+It also softens the impedance seen by GPIO21 RX when TX is driving HIGH, protecting
+the RX input from being overdriven.
+
+**100Ω on each PDN_UART pin:**
+All three drivers share the same bus node. When one driver responds, its open-drain
+output pulls that driver's PDN_UART pin LOW. Without isolation, this LOW would also
+be seen at the PDN_UART pin of the other two non-responding drivers, which could
+corrupt their internal UART state (treating the bus activity as addressed to them).
+The 100Ω series resistor on each PDN_UART pin creates a small voltage drop that
+decouples each driver's input from the bus during contention, and limits the current
+path between drivers if two open-drain outputs are momentarily both active.
+
+**Circuit (same topology for U5/U6/U7 — MS1/MS2 differ per address table):**
 
 ```
                 12V (VM)
@@ -2281,19 +2337,21 @@ by default at the low step rates used for dosing.
  3.3V ───────►│ VIO                  │
  GND ────────►│ GND                  │
               │                      │
- STEP_xxx ───►│ STEP          OA1 ───┼──► coil A+
+ STEP_xxx ───►│ STEP          OA1 ───┼──► coil A+   ← U5: GPIO11, U6: GPIO15, U7: GPIO19
  3.3V ───────►│ DIR           OA2 ───┼──► coil A-
-STEPPER_EN ──►│ EN (act. LOW) OB1 ───┼──► coil B+
+  GND ───────►│ EN            OB1 ───┼──► coil B+
               │               OB2 ───┼──► coil B-
- 3.3V ─100k──►│ PDN_UART             │
- 3.3V ───────►│ MS1           BRA ───┼──── 220mΩ ──── GND
- 3.3V ───────►│ MS2           BRB ───┼──── 220mΩ ──── GND
+UART bus─100Ω►│ PDN_UART             │   ← bus = GPIO22─1kΩ─┤; 100Ω isolates each node
+  MS1* ──────►│ MS1           BRA ───┼──── 220mΩ ──── GND   ← RSENSE: 1%, 1/4W 0805
+  MS2* ──────►│ MS2           BRB ───┼──── 220mΩ ──── GND   ← 1/8W insufficient at full scale
   GND ───────►│ SPREAD               │
+  GND ───────►│ STDBY                │   ← tied LOW; STDBY resets all UART regs if pulsed
               │                      │
-3.3V─4.7kΩ──►├─ VREF ──1kΩ──► GND   │   ← ~0.58V → ~0.75A peak
+3.3V─4.7kΩ──►├─ VREF ──1kΩ──► GND   │   ← ~0.58V, full-scale ~1.32A
               │      TMC2209          │
               │     (QFN-28)          │
               └──────────────────────┘
+  * MS1/MS2 per address table: U5=GND/GND, U6=3.3V/GND, U7=GND/3.3V
 ```
 
 **GPIO Assignments:**
@@ -2301,7 +2359,9 @@ STEPPER_EN ──►│ EN (act. LOW) OB1 ───┼──► coil B+
 GPIO11 ──► STEP_PH_DN  (U5 pH Down driver STEP)
 GPIO15 ──► STEP_NUT_A  (U6 Nutrient A driver STEP)
 GPIO19 ──► STEP_NUT_B  (U7 Nutrient B driver STEP)
-GPIO20 ──► STEPPER_EN  (active LOW, shared all 3 drivers)
+GPIO21 ──► TMC2209_UART_RX  (UART1 RX — shared bus listen)
+GPIO22 ──► TMC2209_UART_TX  (UART1 TX — shared bus drive, 1kΩ series)
+GPIO20 ──  (available — STEPPER_EN not needed; EN tied to GND)
 ```
 
 **DIR hardwired to 3.3V** on all three drivers. Peristaltic pumps are self-sealing —
@@ -2309,61 +2369,82 @@ the rollers pinch the tube closed when stopped, so backflow cannot occur and dir
 reversal is never needed. If a pump runs backwards on first install, swap the coil A
 wires (OA1 ↔ OA2) on the connector.
 
----
-
-#### UART Mode (alternative to standalone)
-
-GPIO21 (UART1 RX) and GPIO22 (UART1 TX) are routed to a shared single-wire half-duplex
-bus connecting all three TMC2209 PDN_UART pins. Each driver has a unique address set
-by MS1/MS2.
-
-**UART address wiring:**
-
-| Driver | MS1 | MS2 | Address |
-|--------|-----|-----|---------|
-| U5 pH Down | GND | GND | 0 |
-| U6 Nut A | 3.3V | GND | 1 |
-| U7 Nut B | GND | 3.3V | 2 |
-
-**UART bus wiring:**
+**RSENSE resistors (BRA, BRB — 220mΩ each):**
+BRA and BRB are the low-side current sense points of the H-bridge for coil A and coil B
+respectively. A 220mΩ shunt resistor connects each pin to GND. The TMC2209 measures the
+voltage drop across this resistor to determine actual coil current, then adjusts its PWM
+chopper duty cycle to regulate current to the IRUN/IHOLD target.
 
 ```
-ESP32 GPIO22 (TX) ──── 1kΩ ──┐
-ESP32 GPIO21 (RX) ────────────┤ shared bus
-                              │
-                         100Ω ├──── U5 PDN_UART
-                         100Ω ├──── U6 PDN_UART
-                         100Ω └──── U7 PDN_UART
+OA1 ──► coil A+ ──[motor]── coil A- ──► OA2
+                                          │
+                              (H-bridge low side)
+                                          │
+                                        BRA ──── 220mΩ ──── GND
+                                          ↑
+                              V_sense = I_coil × 0.22Ω
+                              at 0.75A:  V_sense = 165mV
 ```
 
-The ESP32 UART TX drives the bus; RX listens on the same net. The 1kΩ on TX limits
-current when a driver pulls the line LOW during its response. The 100Ω series resistors
-on each PDN_UART pin prevent bus contention between drivers.
+The same applies to BRB for coil B. Both coils carry different currents at each
+microstep position, so independent measurement is required.
 
-**PCB change vs standalone:** replace each driver's 100kΩ PDN_UART pullup to 3.3V with
-a 100Ω series resistor to the shared bus. MS1/MS2 wiring changes per address table above.
+The RSENSE value sets full-scale current together with VREF:
 
-**Benefits over standalone:**
+```
+I_full_scale = VREF / (2 × RSENSE) = 0.58V / (2 × 0.22Ω) = 1.32A peak
+IRUN = 18  →  (18+1)/32 × 1.32A ≈ 0.78A peak  (target: 0.75A)
+```
 
-| Feature | Standalone | UART |
-|---------|------------|------|
-| Standstill current | Full (set by VREF) | Zero (`IHOLD=0`) |
-| STEPPER_EN needed | Yes (GPIO20) | No — GPIO20 freed |
-| Microstepping | Up to 1/16 (MS1/MS2) | Up to 1/256 (register) |
-| Stall detection | No | Yes (StallGuard4 via DIAG) |
-| VREF resistor | Required | Optional (current set in register) |
+**Why 220mΩ:**
+- Too low (e.g. 100mΩ): V_sense = 75mV at 0.75A — marginal measurement accuracy,
+  poor StallGuard4 resolution at low current
+- Too high (e.g. 500mΩ): P = I²R = 0.75² × 0.5 = 0.28W per resistor;
+  × 2 resistors × 3 drivers = **1.7W** wasted as heat in the sense resistors alone
+- At 220mΩ: V_sense = 165mV (good resolution); P = 0.75² × 0.22 = **0.12W per
+  resistor** → 0.72W total across all 6 — acceptable
 
-With `IHOLD=0` the drivers draw zero coil current at standstill, making STEPPER_EN
-redundant. GPIO20 becomes available for other use.
+The sense voltage is also used by StealthChop2 (current-mode PWM feedback) and
+StallGuard4 (coil current deviation from expected pattern signals a stall).
+Use **1% tolerance, 1/4W** resistors. At nominal 0.75A peak (0.53A RMS): P = 62mW — well
+within 1/8W. However at full-scale IRUN=31 (1.32A peak): P = 190mW, which exceeds 1/8W.
+1/4W 0805 is the same footprint and cost; use it to cover firmware misconfiguration.
+RSENSE error is directly proportional to current error — 1% tolerance is required.
 
-**Key UART registers to configure:**
+**Key UART registers to configure at startup:**
 
 | Register | Value | Purpose |
 |----------|-------|---------|
-| `IHOLD` | 0 | Zero standstill current |
-| `IRUN` | 16–31 | Run current (scale 0–31, maps to ~0.75A with RSENSE=220mΩ) |
-| `MSTEP` | 8 (1/256) | Full interpolation microstepping |
-| `TPWMTHRS` | 0 | StealthChop active at all speeds |
+| `IHOLD` | 0 | Zero standstill current (EN tied to GND — this is essential) |
+| `IRUN` | 18 | Run current ≈ 0.75A (18/31 × full-scale with RSENSE=220mΩ, VREF=0.58V) |
+| `IHOLDDELAY` | 6 | Steps between IRUN→IHOLD transition after last STEP pulse |
+| `TPWMTHRS` | 0 | StealthChop2 active at all speeds |
+
+**DIAG pin:**
+Active-HIGH open-drain output. Asserts (goes HIGH) when StallGuard4 detects a motor
+stall or when a driver error occurs (overtemperature, short circuit). In UART mode,
+stall detection is preferred via the `DRV_STATUS` register (read `SG_RESULT` field)
+rather than the DIAG pin — this avoids spending a GPIO and is more informative
+(gives a numeric stall load value, not just a binary flag).
+
+PCB connection options:
+- **v1 (recommended):** leave DIAG floating — no GPIO required; poll `DRV_STATUS` via
+  UART instead. Place a DNP 10kΩ pullup footprint to 3.3V for future use.
+- **v2 (optional):** connect each DIAG to a free GPIO (GPIO18, GPIO20, GPIO23) via
+  10kΩ pullup; allows interrupt-driven stall detection without polling.
+
+**INDEX pin:**
+Pulse output — by default emits one pulse per electrical period (every 4 full steps at
+1× microstepping). Can be reconfigured via UART `IOIN` register to signal other events
+(e.g. first microstep position, stepper index).
+
+For dosing pumps, step count is controlled directly by the ESP32 (counted steps = known
+volume), so INDEX adds no value in normal operation. **Leave INDEX floating** (high-Z
+output, no harm). Place a DNP 1kΩ series + test point footprint for debugging if needed.
+
+**Standalone fallback (no firmware UART):** replace each 100Ω PDN_UART series resistor
+with 100kΩ to 3.3V; set MS1/MS2 both to 3.3V (1/16 microstep, addr unused); connect
+EN to GPIO20. Current then set by VREF divider only. StealthChop2 remains active.
 
 **Dosing Pump — Kamoer KAS SF-12V:**
 

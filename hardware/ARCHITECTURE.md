@@ -88,16 +88,16 @@ calibration is a one-time measurement and accuracy is maintained until tubing re
 - Motor: bipolar stepper (4-wire)
 - Order without bundled drive board; TMC2209 used instead
 
-**Driver — Trinamic TMC2209 (QFN-28, standalone mode):**
+**Driver — Trinamic TMC2209 (QFN-28, UART mode):**
 - VM: 4.75–29V (12V rail used)
 - Logic: 3.3V
-- Current: 2A RMS rated, set to 0.75A via VREF resistor
-- StealthChop2: near-silent operation at low step rates (default in standalone mode)
-- 1/16 microstepping hardwired via MS1/MS2; interpolated to 1/256 internally
-- Standalone mode: PDN_UART pulled HIGH, MS1/MS2 set microstepping, STEPPER_EN (GPIO20) gates power
-- UART mode (GPIO21 RX / GPIO22 TX): all 3 drivers on one shared bus; IHOLD=0 eliminates standstill
-  current, making STEPPER_EN redundant; StallGuard4 stall detection available; see SCHEMATIC_DESIGN.md §7.2
-- DIAG pin available for fault detection (optional in v1)
+- Current: 2A RMS rated; set to 0.75A via IRUN register (RSENSE=220mΩ, VREF=0.58V)
+- StealthChop2: near-silent operation at low step rates
+- 1/256 microstepping via UART register (MS1/MS2 used for bus addressing)
+- UART mode (GPIO21 RX / GPIO22 TX): all 3 drivers share one bus; addresses 0/1/2 via MS1/MS2;
+  IHOLD=0 → zero standstill current; EN tied to GND (permanently enabled)
+- Standalone fallback: PDN_UART 100kΩ to 3.3V, MS1/MS2 set microstepping, EN→GPIO20; see §7.2
+- DIAG pin available for StallGuard4 fault detection (optional in v1)
 
 **Why 12V and not 24V:**
 The 24V variant of the KAS pump was considered to reduce supply current. It does not help
@@ -295,7 +295,7 @@ Never run EC and pH corrections in the same step. Always re-measure after mixing
 | 17 | (CP2102 TX) | — | Reserved — CP2102N UART TX on DevKit |
 | 18 | (available) | — | Free GPIO |
 | 19 | STEP_NUT_B | Output | TMC2209 STEP for Nutrient B driver |
-| 20 | STEPPER_EN | Output | TMC2209 shared active-LOW enable for all 3 stepper drivers (not needed in UART mode) |
+| 20 | (available) | — | Free GPIO — EN tied to GND on all TMC2209 drivers (IHOLD=0 handles standstill) |
 | 21 | TMC2209_UART_RX | Input | TMC2209 UART bus RX (ESP32-C6 UART1) |
 | 22 | TMC2209_UART_TX | Output | TMC2209 UART bus TX (ESP32-C6 UART1) |
 | 23 | (available) | — | Free GPIO |

@@ -127,10 +127,11 @@ Recommended:
 | Qty | Part | Description | Notes | Price |
 |-----|------|-------------|-------|-------|
 | 3 | TMC2209 | Stepper driver, QFN-28, 2A RMS | U5 pH Down, U6 Nut A, U7 Nut B | ~$2 ea |
-| 6 | 220mΩ resistor | RSENSE, 1% tol, 0805 | 2 per driver (BRA, BRB) | $0.10 ea |
+| 6 | 220mΩ resistor | RSENSE, 1% tol, **1/4W**, 0805 | 2 per driver (BRA, BRB); typ 62mW, max 190mW at full scale | $0.10 ea |
 | 3 | 100nF capacitor | VM local bypass, 0402 | 1 per driver | $0.05 ea |
 | 3 | 47µF / 25V electrolytic | VM bulk cap | 1 per driver | $0.20 ea |
-| 3 | 100kΩ resistor | PDN_UART pullup to 3.3V | 1 per driver, 0402 | $0.05 ea |
+| 3 | 100Ω resistor | PDN_UART series to UART bus | 1 per driver, 0402 | $0.05 ea |
+| 1 | 1kΩ resistor | UART TX bus series (GPIO22) | shared, 0402 | $0.05 ea |
 | 3 | 4.7kΩ resistor | VREF divider high-side | 1 per driver, 0402 | $0.05 ea |
 | 3 | 1kΩ resistor | VREF divider low-side | 1 per driver, 0402 | $0.05 ea |
 

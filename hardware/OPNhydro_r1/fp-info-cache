@@ -1,4 +1,4 @@
-27486523471083285
+27498931562225680
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -7616,6 +7616,13 @@ TERM BLK HDR 2POS 5.08mm
 2
 2
 Coert-Vonk
+TERM BLK HDR 2POS MSTBA 5.08mm
+
+
+0
+2
+2
+Coert-Vonk
 TERM BLK HDR 3POS 3.81mm 1WIRE
 
 
@@ -7644,6 +7651,13 @@ TERM BLK HDR 4POS 5.08mm
 4
 4
 Coert-Vonk
+TERM BLK HDR 4POS MSTBA 5.08mm
+
+
+0
+4
+4
+Coert-Vonk
 TERM BLK HDR 6POS 3.81mm
 
 
@@ -7657,6 +7671,41 @@ TERM BLK HDR 6POS 5.08mm
 0
 6
 6
+Coert-Vonk
+TERM BLK HDR 6POS MSTBA 5.08mm
+
+
+0
+6
+6
+Coert-Vonk
+TERM BLK HDR 6POS PH 2mm
+
+S6B-PH-K-S 
+0
+6
+6
+Coert-Vonk
+TERM BLK PLG 2POS MSTB 5.08mm
+
+
+0
+0
+0
+Coert-Vonk
+TERM BLK PLG 4POS MSTB 5.08mm
+
+
+0
+0
+0
+Coert-Vonk
+TERM BLK PLG 6POS MSTB 5.08mm
+
+
+0
+0
+0
 Coert-Vonk
 TERM BLK PLUG 2POS 5.08mm
 
