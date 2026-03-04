@@ -374,18 +374,20 @@ USB-C, boot/reset buttons, antenna, and power regulation are on the DevKit.
       US_TRIG ──────┤ GPIO7  (output)                     │
                     │                                     │
      (reserved) ────┤ GPIO8  (RGB LED on DevKit)          │
-   (available) ────┤ GPIO9  (strapping pin — 45kΩ pullup)      │
+   (available) ────┤ GPIO9  (strapping pin — 45kΩ pullup)  │
      PUMP_MAIN ─────┤ GPIO10 (output)                     │
-     PUMP_PH_DN ────┤ GPIO11 (output)                     │
+    STEP_PH_DN ─────┤ GPIO11 (output)                     │
                     │                                     │
-     PUMP_NUT_A ────┤ GPIO15 (output, strapping pin)      │
-     (reserved) ────┤ GPIO17 (CP2102 UART TX)             │
-    PUMP_NUT_B ─────┤ GPIO19 (output)                     │
-   (available) ─────┤ GPIO20 (available)                  │
+    STEP_NUT_A ─────┤ GPIO15 (output, strapping pin)      │
+     (reserved) ────┤ GPIO16 (CP2102N UART0 TX)           │
+     (reserved) ────┤ GPIO17 (CP2102N UART0 RX from CP)   │
+   (available) ─────┤ GPIO18 (available)                  │
+    STEP_NUT_B ─────┤ GPIO19 (output)                     │
+   STEPPER_EN ──────┤ GPIO20 (output)                     │
                     │                                     │
-     (reserved) ────┤ GPIO21 (future RS-485)              │
-     (reserved) ────┤ GPIO22 (future RS-485)              │
-     (reserved) ────┤ GPIO23 (future RS-485)              │
+TMC2209_UART_RX ───┤ GPIO21 (input)                      │
+TMC2209_UART_TX ───┤ GPIO22 (output)                     │
+   (available) ────┤ GPIO23 (available)                  │
                     │                                     │
                     └─────────────────────────────────────┘
 
@@ -422,26 +424,39 @@ these directly to the USB-C connector for three simultaneous use cases:
 Do not route GPIO12/GPIO13 to the carrier PCB. They are occupied by the DevKit USB
 interface and must remain exclusive to the USB-C connector.
 
-#### GPIO15 — MOSFET driver 10kΩ pull-down (strapping pin, PUMP_NUT_A)
-GPIO15 is a strapping pin. OPNhydro uses GPIO15 for PUMP_NUT_A; the MOSFET gate driver
-circuit includes a 10kΩ pull-down resistor to GND. At boot, the ESP32-C6 samples GPIO15:
+#### GPIO15 — TMC2209 STEP pull-down (strapping pin, STEP_NUT_A)
+GPIO15 is a strapping pin. OPNhydro uses GPIO15 for STEP_NUT_A (TMC2209 STEP input for
+the Nutrient A stepper driver). The TMC2209 STEP input has a 10kΩ pull-down on the PCB.
+At boot, the ESP32-C6 samples GPIO15:
 - The 10kΩ pull-down holds GPIO15 LOW → **ESP32 ROM boot messages are suppressed** on
   the UART0 TX pin. This is cosmetic only and has no effect on application operation.
-- The pull-down also ensures the MOSFET gate is LOW at power-on, preventing the pump
-  from activating before firmware runs. This is the correct fail-safe behaviour.
+- The pull-down also holds STEP_NUT_A LOW at power-on — no step pulses are generated
+  before firmware runs. This is the correct fail-safe behaviour.
+
+#### GPIO16 — CP2102N UART0 TX (reserved, do not connect externally)
+GPIO16 is the ESP32-C6 UART0 TX output. On the DevKitC-1, this connects to the CP2102N
+USB-UART bridge RX input. UART0 may transmit ROM boot messages and other serial data.
+Do not route GPIO16 to the carrier PCB for any other purpose. Any external load would
+corrupt serial output and could interfere with boot-time messages.
+
+> Note: GPIO15's pull-down suppresses ROM messages on UART0 TX (GPIO16). Even so,
+> GPIO16 remains occupied by the CP2102N connection and must not be used.
+
 
 #### GPIO17 — CP2102N UART TX (reserved, do not connect)
 GPIO17 is actively driven by the CP2102N USB-to-UART bridge TX output on the DevKitC.
 Do not route GPIO17 to the carrier PCB. Any external connection would fight the CP2102N
 output and could damage the bridge IC or the ESP32-C6 input buffer.
 
-#### GPIO21–23 — Future RS-485 expansion (reserved, unconnected)
-These three pins are reserved for a future RS-485 sensor bus (e.g., Modbus RTU):
-- GPIO21: RS-485 TX / DE (driver enable)
-- GPIO22: RS-485 RX
-- GPIO23: RE (receiver enable, optional)
+#### GPIO21 / GPIO22 — TMC2209 UART bus (RX / TX)
+GPIO21 and GPIO22 are assigned to the TMC2209 single-wire UART bus (ESP32-C6 UART1):
+- GPIO22: UART1 TX → drives the shared PDN_UART bus
+- GPIO21: UART1 RX ← receives responses from the addressed TMC2209
 
-No footprint or pull resistors are required on the current PCB revision. Leave unconnected.
+See §7.2 for the UART wiring diagram, address table, and configuration registers.
+
+#### GPIO23 — Available
+No assignment. Leave unconnected on the carrier PCB.
 
 #### ~RST — Reset input
 - **Leave floating** — internally held HIGH by the chip; normal operation
@@ -2061,7 +2076,7 @@ Recommended 12V DC submersible pumps for hydroponic circulation:
 **Option 1: AUBIG DC40-1250 Brushless Submersible Pump** ✅ **PRIMARY RECOMMENDATION**
 
 **Electrical Specifications:**
-- Model: DC40-1250 (also available as DC40E-1250 with NPT fittings)
+- Model: DC40-1250 (barbed fittings; DC40E-1250 is the NPT variant — currently in short supply)
 - Voltage: 12V DC nominal (11-13V operating range)
 - Current: 1.0-1.2A @ 12V
 - Power: 14.4W maximum
@@ -2092,7 +2107,7 @@ Recommended 12V DC submersible pumps for hydroponic circulation:
 **Cost & Availability:**
 - Price: $12-18 USD
 - Sources: Amazon, eBay, AliExpress
-- Part Numbers: DC40-1250 (wire leads), DC40E-1250 (NPT threads)
+- Part Numbers: DC40-1250 (wire leads), DC40-1250 (NPT threads)
 
 **Hydroponic System Suitability:**
 
@@ -2151,7 +2166,7 @@ Recommended Power Supplies:
 **Installation Notes:**
 1. Pump must be fully submerged in water before power-on (prevents dry-run damage)
 2. Mount pump vertically or horizontally, avoid inverted position
-3. Use 1/2" ID vinyl tubing or NPT fittings (DC40E model)
+3. Use 1/2" ID vinyl or silicone tubing on barbed fittings; secure with hose clamps
 4. Add inline strainer/filter to prevent debris clogging impeller
 5. Test PWM control at low duty cycles to find minimum stable speed
 6. Allow 10-15 second startup delay in software for motor initialization
@@ -2232,133 +2247,174 @@ Pump Side Connection Options:
 - **C2 (100nF bypass)**: Place within 5mm of Q1 DRAIN pin for best performance
 ```
 
-### 7.2 12V Dosing Pump Drivers (×4)
+### 7.2 12V Dosing Pump Drivers — TMC2209 Stepper (×3)
 
-> **Design decision — Nutrient A and B on separate channels:**
-> Part A and Part B nutrients are almost always dosed simultaneously at a 1:1 ratio,
-> so combining them on one MOSFET was considered. It was rejected because peristaltic
-> pump heads wear unevenly over time; separate channels allow independent mL/s
-> calibration in firmware without mechanical adjustment. Cost delta: ~$0.10.
-> See ARCHITECTURE.md §8 for full rationale.
+> **Design decision — Stepper over DC motor, and Nutrient A/B on separate channels:**
+> DC peristaltic pumps require periodic flow-rate calibration; stepper-driven pumps dose
+> by step count × pump displacement, which is stable between calibrations. TMC2209
+> StealthChop2 provides near-silent operation. Nutrient A and B use separate STEP lines
+> (GPIO15, GPIO19) but share DIR (GPIO18) — they always dose in the same direction.
+> Cost delta vs combined channel: ~$3 (one TMC2209). See ARCHITECTURE.md §2 and §8.
 
-```
-Same circuit topology as main pump, but using smaller AO3400A MOSFETs.
-All on 12V rail. Use separate MOSFET for each dosing pump.
+Three TMC2209 stepper drivers (QFN-28) each drive one Kamoer KAS SF-12V bipolar stepper
+peristaltic pump. All drivers operate in standalone mode (no UART). StealthChop2 is active
+by default at the low step rates used for dosing.
 
-                                    12V
-                                     │
-                        ┌────────────┼────┬──── 12V rail
-                        │            │    │
-                        │           C2  ─┴─
-                        │          100nF GND (local bypass)
-                        │            │
-                       D1          PUMP+
-                   (1N5819)         │
-                        │          PUMP
-                        │           │
-               ┌────────┴───────┐   │
-               │     DRAIN      │   │
-        ┌──────┤  Q2-Q5         ├───┴── PUMP-
-        │      │  AO3400A       │
-        │      │  (SOT-23)      │
-        │      └───────┬────────┘
-        │           SOURCE
-        │              │
-       R2             ─┴─
-      100Ω            GND
-        │
-        │
-GPIO ───┼────────┬─────────────────► Gate Drive
-                 │
-                R1
-               10k
-                 │
-                ─┴─
-                GND
-
-Q2-Q5: AO3400A (Logic-level N-MOSFET, SOT-23)
-- VDS = 30V, ID = 5.8A
-- RDS(on) = 33mΩ @ VGS=4.5V
-- Compact SOT-23 package
-- Perfect for 300mA dosing pump loads
-- Alternative: BSS214N (50V, 5A, 100mΩ)
-
-D1: 1N5819 (1A Schottky flyback diode, SOD-123)
-- Lower current rating sufficient for dosing pumps
-
-GPIO Assignments:
-GPIO11 ──► Q2: Pump pH Down
-GPIO15 ──► Q3: Pump Nutrient A
-GPIO19 ──► Q4: Pump Nutrient B
-GPIO20 ──► (available)
-
-**Dosing Pump Specifications:**
-
-Recommended 12V DC peristaltic pumps for precise nutrient dosing:
-
-| Parameter | Specification | Notes |
-|-----------|---------------|-------|
-| **Voltage** | 12V DC | Matches system power rail |
-| **Current** | 150-300mA typical | Well within AO3400A capacity (5.8A) |
-| **Power** | 2-4W | Low power consumption |
-| **Flow Rate** | 50-100 mL/min | Precision dosing |
-| **Type** | Peristaltic | Self-priming, no contamination |
-| **Tubing** | Food-grade silicone | 4×6mm or 6×9mm common |
-| **Duty Cycle** | Intermittent (1-5 min/day) | Short bursts for dosing |
-| **Connection** | Wire leads (2-wire) | Red = +12V, Black = GND |
-
-**Recommended Dosing Pump Models:**
-
-**Option 1: Kamoer NKP-DC-B08 Peristaltic Pump** ✅ **PRIMARY RECOMMENDATION**
-- Flow: 47-90 mL/min (tubing dependent)
-- Current: 250-300mA @ 12V
-- Power: 3-4W
-- Tubing: BPT tube (imported, long lifespan), 2.5mm ID × 4.5mm OD or 3mm ID × 5mm OD
-- Features:
-  - Premium build quality (Kamoer brand reputation)
-  - Self-priming and dry-run capable
-  - Reversible flow (change polarity for backflow)
-  - Ultra-quiet operation, low pulse (3-rotor design)
-  - Imported BPT tubing (longer service life than silicone)
-  - Snap-fit pump head (easy tube replacement and cleaning)
-- Cost: $15-25 per pump (×4 = $60-100 total)
-- Sources: Amazon, eBay, Robotistan, Robu.in
-- Part Number: NKP-DC-B08D (black), NKP-DC-B08G (green), NKP-DC-B08B (various)
-- Best for: **Recommended for OPNhydro** - proven reliability, worth the premium over generic
-- Reviews: Praised for build quality and user experience in aquarium hobby
-
-**Option 2: Generic 12V Peristaltic Dosing Pump (Budget Alternative)**
-- Flow: 50-100 mL/min
-- Current: 200-300mA @ 12V
-- Tubing: Food-grade silicone, 4×6mm or 6×9mm
-- Features: Self-priming, bidirectional, chemically resistant
-- Cost: $8-15 per pump (×4 = $32-60 total)
-- Sources: Generic "12V Peristaltic Pump" (Amazon, AliExpress)
-- Brands: INTLLAB, generic Chinese pumps
-- Best for: Tight budgets - saves $40-60 vs Kamoer, but lower reliability
-- Note: May require more frequent tubing replacement (1-2 years vs 3-5 years)
-
-**Option 3: Kamoer KDS Series (High precision stepper)**
-- Models: KDS-FE-2-S17B (50mL/min), KDS-FE-2-S17C (100mL/min)
-- Current: 150-250mA @ 12V
-- Features: Stepper motor, high accuracy, TTL/analog control
-- Cost: $30-50 per pump (×4 = $120-200 total)
-- Best for: Applications requiring ±1% dosing accuracy (commercial/research)
-
-**Dosing Pump Connector (×4):**
+**TMC2209 Standalone Configuration (same for all 3 drivers):**
+- MS1 = 3.3V, MS2 = 3.3V → 1/16 microstepping (internally interpolated to 1/256)
+- PDN_UART = 100kΩ to 3.3V → standalone mode (power-down via UART disabled)
+- SPREAD = GND → StealthChop2 mode (silent)
+- RSENSE = 220mΩ (sets full-scale current reference)
+- VREF: resistor divider from 3.3V → ~0.75A peak motor current
+- DIAG: 10kΩ pullup to 3.3V; leave unconnected in v1
 
 ```
-Phoenix Contact MC 1.5/2-ST-3.5 (2-position pluggable screw terminal) ×4
-- Pitch: 3.5mm — physically incompatible with 5.08mm main pump connector
-- One terminal block per pump (Q2-Q5)
-- Wire size: 24-18 AWG (for 300mA @ 12V)
-- PCB header: MC 1.5/2-G-3.5
-- Label silkscreen: "pH UP", "pH DN", "NUT A", "NUT B"
-
-Pin Assignment (each pump):
-Pin 1: 12V_PUMP_n (switched via Q2-Q5)
-Pin 2: GND
+                12V (VM)
+                   │
+           ┌───┬──┴──┬───┐
+           │   │     │   │
+         47µF 100nF ─┴─  │     ← bulk + local bypass per driver
+           │   │    GND  │
+           └───┴─────────┤
+                     VM  │
+              ┌──────────┴──────────┐
+ 3.3V ───────►│ VIO                  │
+ GND ────────►│ GND                  │
+              │                      │
+ STEP_xxx ───►│ STEP          OA1 ───┼──► coil A+
+ 3.3V ───────►│ DIR           OA2 ───┼──► coil A-
+STEPPER_EN ──►│ EN (act. LOW) OB1 ───┼──► coil B+
+              │               OB2 ───┼──► coil B-
+ 3.3V ─100k──►│ PDN_UART             │
+ 3.3V ───────►│ MS1           BRA ───┼──── 220mΩ ──── GND
+ 3.3V ───────►│ MS2           BRB ───┼──── 220mΩ ──── GND
+  GND ───────►│ SPREAD               │
+              │                      │
+3.3V─4.7kΩ──►├─ VREF ──1kΩ──► GND   │   ← ~0.58V → ~0.75A peak
+              │      TMC2209          │
+              │     (QFN-28)          │
+              └──────────────────────┘
 ```
+
+**GPIO Assignments:**
+```
+GPIO11 ──► STEP_PH_DN  (U5 pH Down driver STEP)
+GPIO15 ──► STEP_NUT_A  (U6 Nutrient A driver STEP)
+GPIO19 ──► STEP_NUT_B  (U7 Nutrient B driver STEP)
+GPIO20 ──► STEPPER_EN  (active LOW, shared all 3 drivers)
+```
+
+**DIR hardwired to 3.3V** on all three drivers. Peristaltic pumps are self-sealing —
+the rollers pinch the tube closed when stopped, so backflow cannot occur and direction
+reversal is never needed. If a pump runs backwards on first install, swap the coil A
+wires (OA1 ↔ OA2) on the connector.
+
+---
+
+#### UART Mode (alternative to standalone)
+
+GPIO21 (UART1 RX) and GPIO22 (UART1 TX) are routed to a shared single-wire half-duplex
+bus connecting all three TMC2209 PDN_UART pins. Each driver has a unique address set
+by MS1/MS2.
+
+**UART address wiring:**
+
+| Driver | MS1 | MS2 | Address |
+|--------|-----|-----|---------|
+| U5 pH Down | GND | GND | 0 |
+| U6 Nut A | 3.3V | GND | 1 |
+| U7 Nut B | GND | 3.3V | 2 |
+
+**UART bus wiring:**
+
+```
+ESP32 GPIO22 (TX) ──── 1kΩ ──┐
+ESP32 GPIO21 (RX) ────────────┤ shared bus
+                              │
+                         100Ω ├──── U5 PDN_UART
+                         100Ω ├──── U6 PDN_UART
+                         100Ω └──── U7 PDN_UART
+```
+
+The ESP32 UART TX drives the bus; RX listens on the same net. The 1kΩ on TX limits
+current when a driver pulls the line LOW during its response. The 100Ω series resistors
+on each PDN_UART pin prevent bus contention between drivers.
+
+**PCB change vs standalone:** replace each driver's 100kΩ PDN_UART pullup to 3.3V with
+a 100Ω series resistor to the shared bus. MS1/MS2 wiring changes per address table above.
+
+**Benefits over standalone:**
+
+| Feature | Standalone | UART |
+|---------|------------|------|
+| Standstill current | Full (set by VREF) | Zero (`IHOLD=0`) |
+| STEPPER_EN needed | Yes (GPIO20) | No — GPIO20 freed |
+| Microstepping | Up to 1/16 (MS1/MS2) | Up to 1/256 (register) |
+| Stall detection | No | Yes (StallGuard4 via DIAG) |
+| VREF resistor | Required | Optional (current set in register) |
+
+With `IHOLD=0` the drivers draw zero coil current at standstill, making STEPPER_EN
+redundant. GPIO20 becomes available for other use.
+
+**Key UART registers to configure:**
+
+| Register | Value | Purpose |
+|----------|-------|---------|
+| `IHOLD` | 0 | Zero standstill current |
+| `IRUN` | 16–31 | Run current (scale 0–31, maps to ~0.75A with RSENSE=220mΩ) |
+| `MSTEP` | 8 (1/256) | Full interpolation microstepping |
+| `TPWMTHRS` | 0 | StealthChop active at all speeds |
+
+**Dosing Pump — Kamoer KAS SF-12V:**
+
+| Parameter | Specification |
+|-----------|---------------|
+| Voltage | 12V |
+| Current | 0.75A |
+| Flow rate | ~11.5–71.5 mL/min (3-rotor, speed-dependent) |
+| Tubing | 3mm ID × 5mm OD, silicone or BPT |
+| Motor | Bipolar stepper (4-wire) |
+| Motor cable connector | JST PHR-6 (6-pin PH female, 2.0mm pitch) |
+| Drive board control connector | JST B4B-XH-A (4-pin XH male, 2.5mm) — on bundled drive board only |
+| Source | [Kamoer KAS SF-12V datasheet](https://www.kamoer.com/us/previewPdf/index.html?type=1&docId=8583&xxsToken=55a775c80a10a02b4f4b7ec1185bf381&id=9005) |
+
+Order without the bundled drive board — TMC2209 replaces it.
+
+**Connector overview:**
+The pump motor cable terminates in a **JST PHR-6** (6-pin PH 2.0mm female housing). The
+bundled drive board (not used) has a **JST B4B-XH-A** (4-pin XH 2.5mm, for STEP/DIR/EN/GND).
+([Kamoer KAS SF-12V datasheet](https://www.kamoer.com/us/previewPdf/index.html?type=1&docId=8583&xxsToken=55a775c80a10a02b4f4b7ec1185bf381&id=9005))
+
+The 6-pin PHR-6 carries motor power and coil wires together (pinout from Kamoer datasheet):
+
+```
+PHR-6 Pin Assignment (verify against datasheet before assembly):
+┌─────┬──────────────────────────────────────────────────────┐
+│ Pin │ Signal         │ PCB connection                      │
+├─────┼────────────────┼─────────────────────────────────────┤
+│  1  │ VCC (12V)      │ 12V rail (motor power)              │
+│  2  │ GND            │ GND                                 │
+│  3  │ Coil A+  (OA1) │ TMC2209 OA1                         │
+│  4  │ Coil A−  (OA2) │ TMC2209 OA2                         │
+│  5  │ Coil B+  (OB1) │ TMC2209 OB1                         │
+│  6  │ Coil B−  (OB2) │ TMC2209 OB2                         │
+└─────┴────────────────┴─────────────────────────────────────┘
+⚠ Pin order and VCC/GND position must be verified from the Kamoer KAS SF-12V datasheet
+  before PCB layout. Coil swap (A↔B or polarity) only affects rotation direction; the
+  TMC2209 handles both. VCC/GND mis-wiring to OA/OB would damage the driver.
+```
+
+**Dosing Pump Connector (×3, PCB side):**
+
+```
+JST S6B-PH-K-S (6-position PH male header, 2.0mm pitch, right-angle TH, PCB mount) ×3
+- Mates with: JST PHR-6 housing on pump motor cable
+- Pitch: 2.0mm
+- 6 pins: VCC, GND, coil A+, coil A−, coil B+, coil B−
+- Silkscreen label: "pH DN", "NUT A", "NUT B"
+- Right-angle orientation: cable exits horizontally toward board edge — preferred for
+  enclosure builds where cables route sideways through cable glands
+- Alternative: B6B-PH-K-S (vertical TH) if cables must exit upward
 ```
 
 ### 7.3 ATO Solenoid Valve Driver

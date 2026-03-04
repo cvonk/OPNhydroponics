@@ -67,16 +67,53 @@ To prevent ground loops and probe interference (especially between pH and EC), w
 
 ### 2. Dosing Pump Selection
 
-Peristaltic pumps recommended for:
-- Self-priming capability
-- Precise volume control via timing
-- Chemical resistance
-- No contamination between fluids
+**Selected: Kamoer KAS SF-12V stepper peristaltic pump + TMC2209 stepper driver**
 
-Specification:
-- Voltage: 12V DC
-- Flow rate: 1-3 mL/s adjustable via PWM
-- Tubing: Silicone, 3mm ID
+Peristaltic pumps are used for:
+- Self-priming capability
+- Chemical resistance (no wetted metal parts)
+- No contamination between fluids
+- Self-sealing when stopped (rollers pinch tube; no drip-back without motor reversal)
+
+DC peristaltic pumps were evaluated and rejected. Their flow rate (mL/s) depends on
+supply voltage and tubing wear, requiring periodic re-calibration to maintain dosing
+accuracy. Stepper-driven pumps dose by step count × pump displacement constant —
+calibration is a one-time measurement and accuracy is maintained until tubing replacement.
+
+**Pump — Kamoer KAS SF-12V:**
+- Voltage: 12V
+- Current: 0.75A
+- Flow rate: ~11.5–71.5 mL/min (3-rotor head, speed-dependent)
+- Tubing: 3mm ID × 5mm OD, silicone or BPT
+- Motor: bipolar stepper (4-wire)
+- Order without bundled drive board; TMC2209 used instead
+
+**Driver — Trinamic TMC2209 (QFN-28, standalone mode):**
+- VM: 4.75–29V (12V rail used)
+- Logic: 3.3V
+- Current: 2A RMS rated, set to 0.75A via VREF resistor
+- StealthChop2: near-silent operation at low step rates (default in standalone mode)
+- 1/16 microstepping hardwired via MS1/MS2; interpolated to 1/256 internally
+- Standalone mode: PDN_UART pulled HIGH, MS1/MS2 set microstepping, STEPPER_EN (GPIO20) gates power
+- UART mode (GPIO21 RX / GPIO22 TX): all 3 drivers on one shared bus; IHOLD=0 eliminates standstill
+  current, making STEPPER_EN redundant; StallGuard4 stall detection available; see SCHEMATIC_DESIGN.md §7.2
+- DIAG pin available for fault detection (optional in v1)
+
+**Why 12V and not 24V:**
+The 24V variant of the KAS pump was considered to reduce supply current. It does not help
+for stepper motors driven by a current-regulating chopper driver.
+
+The TMC2209 regulates coil current to the VREF/RSENSE setpoint (0.75A) regardless of
+supply voltage. At low step rates — where dosing pumps operate — back-EMF is negligible,
+so supply power is approximately I²×R_coil, independent of VM. Switching from 12V to 24V
+supply with the same 0.75A coil current does not meaningfully reduce supply current draw.
+
+The only real benefit of higher supply voltage for stepper motors is a higher achievable
+step rate (faster di/dt = V/L allows the coil to reach rated current at higher RPM). For
+a dosing pump turning a few rotations per dose at <50 RPM, this is irrelevant.
+
+Using 24V for dosing pumps while keeping 12V for the main pump and ATO valve would require
+a second supply rail. 12V is used throughout.
 
 ### 3. ESP32-C6 Module Selection
 
@@ -156,33 +193,34 @@ alerting, but the hardware path acts regardless of software state.
 - 1× MMBT3904 NPN transistor, SOT-23 (~$0.05)
 - 1× 4.7kΩ base resistor, 0805 (already in BOM)
 
-### 8. Nutrient A and B on Separate MOSFET Channels
+### 8. Nutrient A and B on Separate TMC2209 Channels
 
-**Decision: PUMP_NUT_A and PUMP_NUT_B each have a dedicated MOSFET driver.**
+**Decision: STEP_NUT_A and STEP_NUT_B each have a dedicated TMC2209 driver.**
 
 Two-part nutrients (Part A: calcium/iron; Part B: phosphate/sulphate) are kept separate in
 concentrate to prevent precipitation, but are always dosed at a 1:1 ratio in normal
-operation — same GPIO pulse, same duration, at the same time.
+operation — same STEP pulse count, at the same time.
 
-Combining both pump motors on a single MOSFET was considered and rejected:
+Combining both pump motors on a single TMC2209 was considered and rejected:
 
 | Factor | Combined | Separate (chosen) |
 |--------|----------|-------------------|
-| GPIO cost | Saves 1 pin (GPIO19 free) | Uses GPIO15 + GPIO19 |
-| BOM cost | Save ~$0.10 (1× AO3400A) | Keep as-is |
+| STEP GPIO cost | Saves 1 pin (GPIO19 free) | Uses GPIO15 + GPIO19 |
+| DIR GPIO cost | n/a | n/a — DIR hardwired to 3.3V on all drivers |
+| BOM cost | Save ~$3 (1× TMC2209) | Keep as-is |
 | Ratio flexibility | Locked 1:1 | Any ratio in firmware |
-| Pump wear compensation | Not possible | Each pump calibrated independently |
+| Tubing wear compensation | Not possible per-pump | Recalibrate each pump independently |
 | Fault isolation | One failure disables both | Identify which pump failed |
 
-**Rationale:** peristaltic pump heads wear at different rates. After 6–12 months the
-mL/s of Pump A and Pump B may diverge. With separate channels the firmware calibrates
-each independently; with a shared channel the ratio can only be corrected mechanically
-(e.g., different tube bore). The cost delta is one AO3400A (~$0.10). GPIO20 was already
-free from a prior pin reassignment, so there is no GPIO pressure to consolidate.
+**Rationale:** with stepper pumps the primary calibration concern shifts from flow-rate
+drift (eliminated by step counting) to tubing bore wear. Bore wear affects pump A and B
+at different rates depending on chemical exposure. Separate STEP channels allow independent
+step-count adjustment per pump without mechanical changes. The cost delta is one TMC2209
+(~$3). DIR is hardwired to 3.3V on all drivers — peristaltic pumps are self-sealing and
+never need direction reversal.
 
-**Future field change:** if combining is ever desired, no PCB revision is required —
-simply tie the two PUMP_NUT connector outputs together externally. The MOSFET on the
-unused channel is left unpopulated (DNP).
+**Future field change:** if combining is ever desired, tie the two coil outputs in parallel
+externally and leave one TMC2209 unpopulated (DNP). No PCB revision required.
 
 ### 9. pH Chemistry and Dosing Sequence
 
@@ -203,7 +241,7 @@ Because pH reliably creeps upward, the system only ever needs to dose *down*.
 A pH Up pump would fire only if pH somehow fell below target — an unusual condition
 that indicates a problem (wrong nutrient formula, excessive CO₂ injection, contamination)
 rather than normal operation. **PUMP_PH_UP has been omitted from the design.**
-Only PUMP_PH_DN (GPIO11, Q2) is fitted.
+Only PUMP_PH_DN (GPIO11 STEP, TMC2209 U5) is fitted.
 
 If pH falls unexpectedly low, the correct response is manual investigation, not
 automated correction with an unmonitored acid reserve.
@@ -252,23 +290,35 @@ Never run EC and pH corrections in the same step. Always re-measure after mixing
 | 8 | (RGB LED) | — | DevKit on-board RGB LED — do not use |
 | 9 | (available) | — | Strapping pin — internal 45kΩ pullup; leave undriven at boot |
 | 10 | PUMP_MAIN | Output | Main circulation pump via MOSFET Q1 (IRLR2905) |
-| 11 | PUMP_PH_DN | Output | pH Down dosing pump via MOSFET Q2 |
-| 15 | PUMP_NUT_A | Output | Nutrient A dosing pump via MOSFET Q3 (strapping pin — 10kΩ pulldown disables ROM msgs) |
-| 17 | (CP2102 TX) | — | Reserved — CP2102 UART TX on DevKit |
-| 19 | PUMP_NUT_B | Output | Nutrient B dosing pump via MOSFET Q4 |
-| 20 | (available) | — | Free GPIO |
-| 21 | (reserved) | — | Future RS-485 |
-| 22 | (reserved) | — | Future RS-485 |
-| 23 | (reserved) | — | Future RS-485 |
+| 11 | STEP_PH_DN | Output | TMC2209 STEP for pH Down driver |
+| 15 | STEP_NUT_A | Output | TMC2209 STEP for Nutrient A driver; strapping pin — 10kΩ pulldown holds STEP LOW at boot |
+| 17 | (CP2102 TX) | — | Reserved — CP2102N UART TX on DevKit |
+| 18 | (available) | — | Free GPIO |
+| 19 | STEP_NUT_B | Output | TMC2209 STEP for Nutrient B driver |
+| 20 | STEPPER_EN | Output | TMC2209 shared active-LOW enable for all 3 stepper drivers (not needed in UART mode) |
+| 21 | TMC2209_UART_RX | Input | TMC2209 UART bus RX (ESP32-C6 UART1) |
+| 22 | TMC2209_UART_TX | Output | TMC2209 UART bus TX (ESP32-C6 UART1) |
+| 23 | (available) | — | Free GPIO |
 
 ## Power Architecture
 
+### Recommended Supply
+
+**Mean Well LRS-75-12** (12V / 6A / 75W, enclosed metal, convection cooled).
+
+Peak 12V load estimate: main pump (1.2A) + 3× dosing (0.75A each, only when stepping) +
+ATO valve (0.5A) + logic buck input (0.5A) ≈ 4.5A worst-case simultaneous. 6A provides
+1.5A headroom.
+
+**IP67 alternative:** LPV-60-12 (12V / 5A / 60W) for humid environments; adequate if
+loads are not fully simultaneous. Avoid HDR-60-12 — only 4.5A (marginal after derating).
+
 ```
-12V DC Input (5A min)
+12V DC Input (LRS-75-12, 6A)
     │
-    ├──► 12V Rail ──┬──► Main Pump MOSFET (IRLZ44N)
-    │               ├──► Dosing Pump MOSFETs (4x IRLZ44N)
-    │               └──► ATO Solenoid Valve MOSFET
+    ├──► 12V Rail ──┬──► Main Pump MOSFET Q1 (IRLR2905)
+    │               ├──► 3× TMC2209 dosing stepper drivers (VM pin)
+    │               └──► ATO Solenoid Valve MOSFET Q8 (AO3400A)
     │
     └──► TPS62933 Buck ──► 5V @ 3A ──► USB/Sensors
                                │
@@ -295,7 +345,7 @@ Never run EC and pH corrections in the same step. Always re-measure after mixing
 | **3.3V Total** | | ~150mA | ~550mA |
 | **5V Total** | | ~25mA | ~80mA |
 | Main Pump | 12V | 500mA | 1.5A |
-| Dosing Pump (each) | 12V | 0 (idle) | 300mA |
+| Dosing pump — KAS SF-12V (each) | 12V | 0 (EN disabled) | 750mA |
 | ATO Solenoid Valve | 12V | 0 (idle) | 500mA |
 | **12V Total** | | 500mA | 3.2A |
 
@@ -354,7 +404,7 @@ Never run EC and pH corrections in the same step. Always re-measure after mixing
 |----------|----------------|
 | 12V Power | 2-pin pluggable screw terminal (3.5mm) |
 | Main Pump | 2-pin pluggable screw terminal (**5.08mm** — Phoenix MSTB 2.5/2-ST-5.08) |
-| Dosing Pumps | 4×2-pin pluggable screw terminal (3.5mm — Phoenix MC 1.5/2-ST-3.5) |
+| Dosing Pumps (stepper) | 3× JST S6B-PH-K-S (6-pin PH 2.0mm right-angle TH — mates with PHR-6 on KAS SF-12V cable; VCC/GND/A+/A−/B+/B−) |
 | ATO Solenoid | 2-pin pluggable screw terminal (3.5mm — Phoenix MC 1.5/2-ST-3.5) |
 | pH/EC/RTD Probes | BNC female (panel mount) |
 | I2C Sensors | 4-pin Phoenix Contact 1803280/1803581 |

@@ -8,7 +8,7 @@
 | Power Management | $15 |
 | Water Quality Sensors (Atlas Scientific) | ~$397 |
 | Environmental Sensors | $20 |
-| Actuators (pumps + ATO valve) | $75 |
+| Actuators (pumps + ATO valve) | ~$150 |
 | Connectors & PCB | $40 |
 | Enclosure | $25 |
 | **Total** | **~$468** |
@@ -77,24 +77,23 @@ Note: Atlas Scientific probes include calibration data and have better longevity
 
 | Qty | Part | Description | Source | Price |
 |-----|------|-------------|--------|-------|
-| 1 | 12V DC pump | Brushless, 800L/H min | Amazon/AliExpress | $15 |
+| 1 | AUBIG DC40-1250 | Brushless DC 12V, 500 L/H, 5m head, ~1.0A, barbed fittings | [Amazon (B076QB7P2V)](https://www.amazon.com/dp/B076QB7P2V) / [eBay](https://www.ebay.com/p/1411964986) | ~$20–25 |
 
-Recommended models:
-- Generic brushless 12V submersible
-- AUBIG DC40E-1250 (12V, 500L/H, 5m head)
+**Selected model: AUBIG DC40-1250** — barbed fittings, 12V, 500 L/H, 5m head, ~1.0–1.2A
+
+- Amazon ASIN B076QB7P2V (also B008F29MYA); also available on eBay if out of stock
+- DC40E-1250 (NPT threads variant) is currently in short supply — use barbed DC40-1250 instead
+- Avoid generic unbranded brushless pumps — flow rate and current draw are often misrepresented
 
 ### Dosing Pumps
 
 | Qty | Part | Description | Source | Price |
 |-----|------|-------------|--------|-------|
-| 3-4 | Peristaltic pump 12V | ~100mL/min, 3mm tubing | AliExpress | $12 ea |
+| 3 | Kamoer KAS SF-12V | Stepper peristaltic, 12V, 0.75A, 3mm ID silicone, 3-rotor | [Amazon](https://www.amazon.com/peristaltic-Stepper-Kamoer-Variable-OD%EF%BC%8C5-84ml/dp/B094QHDSQL) | ~$25–35 ea |
 
-Required: pH Down, Nutrient A, Nutrient B (3 pumps)
-Optional: pH Up (if your system tends toward acidic - most don't need this)
-
-Recommended:
-- Kamoer KFS (quality, $20 ea)
-- Generic 12V peristaltic (budget, $6 ea)
+Required: pH Down (U5), Nutrient A (U6), Nutrient B (U7) — 3 pumps total.
+Order **without** bundled drive board; TMC2209 replaces it.
+BPT tube recommended over silicone for longer chemical resistance life.
 
 ### ATO Solenoid Valve
 
@@ -106,22 +105,36 @@ Recommended:
 - US Solid 12V NC solenoid (food grade)
 - Must be NC (normally closed) for fail-safe operation
 
-**Actuators Subtotal: ~$75**
+**Actuators Subtotal: ~$150** (3× KAS SF-12V stepper pumps dominate cost)
 
 ---
 
 ## Pump/Valve Driver Components
 
+### Main Pump + ATO Valve (MOSFET)
+
 | Qty | Part | Description | Notes | Price |
 |-----|------|-------------|-------|-------|
 | 1 | IRLR2905 | N-MOSFET 55V/42A, DPAK | Main pump driver (Q1) | — |
-| 7 | AO3400A | N-MOSFET 30V/5.7A, SOT-23 | Dosing pumps + ATO valve (Q2–Q8) | — |
+| 1 | AO3400A | N-MOSFET 30V/5.7A, SOT-23 | ATO solenoid valve (Q8) | — |
 | 2 | MMBT3904 | NPN transistor, SOT-23 | Float switch hardware cutoffs (Q9, Q10) | $0.05 ea |
-| 8 | 10kΩ resistor | Gate pull-down | 0805 | $0.05 ea |
-| 8 | 100Ω resistor | Gate series | 0805 | $0.05 ea |
+| 2 | 10kΩ resistor | Gate pull-down (Q1, Q8) | 0805 | $0.05 ea |
+| 2 | 100Ω resistor | Gate series (Q1, Q8) | 0805 | $0.05 ea |
 | 2 | 4.7kΩ resistor | NPN base resistor (Q9, Q10) | 0805 | $0.05 ea |
 
-**Subtotal: ~$6**
+### Dosing Pump Stepper Drivers (TMC2209)
+
+| Qty | Part | Description | Notes | Price |
+|-----|------|-------------|-------|-------|
+| 3 | TMC2209 | Stepper driver, QFN-28, 2A RMS | U5 pH Down, U6 Nut A, U7 Nut B | ~$2 ea |
+| 6 | 220mΩ resistor | RSENSE, 1% tol, 0805 | 2 per driver (BRA, BRB) | $0.10 ea |
+| 3 | 100nF capacitor | VM local bypass, 0402 | 1 per driver | $0.05 ea |
+| 3 | 47µF / 25V electrolytic | VM bulk cap | 1 per driver | $0.20 ea |
+| 3 | 100kΩ resistor | PDN_UART pullup to 3.3V | 1 per driver, 0402 | $0.05 ea |
+| 3 | 4.7kΩ resistor | VREF divider high-side | 1 per driver, 0402 | $0.05 ea |
+| 3 | 1kΩ resistor | VREF divider low-side | 1 per driver, 0402 | $0.05 ea |
+
+**Subtotal: ~$15**
 
 ---
 
@@ -131,7 +144,8 @@ Recommended:
 |-----|------|-------------|-------|-------|
 | 2 | Female header 1×20 | 2.54mm pitch | DevKit mounting | $0.50 ea |
 | 1 | Phoenix MSTB 2.5/2-ST-5.08 | 5.08mm pluggable terminal | Main pump (header + plug) | $0.50 |
-| 5 | Phoenix MC 1.5/2-ST-3.5 | 3.5mm pluggable terminal | Dosing pumps ×4 + ATO valve (header + plug) | $0.40 ea |
+| 3 | JST S6B-PH-K-S | PH 2.0mm 6-pin right-angle TH header | Dosing stepper motors ×3 — mates with PHR-6 on pump cable (VCC/GND/A+/A−/B+/B−) | $0.20 ea |
+| 1 | Phoenix MC 1.5/2-ST-3.5 | 3.5mm pluggable terminal, 2-pin | ATO solenoid valve | $0.40 |
 | 1 | Pluggable terminal 2P | 3.5mm pitch | 12V power input (header + plug) | $0.50 |
 | 3 | BNC panel mount female | For probes | pH/EC/RTD | $2 ea |
 | 4 | JST-PH 4P | I2C sensors | Qwiic compat | $0.20 ea |
@@ -166,6 +180,34 @@ Recommended:
 
 ---
 
+## Power Supply
+
+System requires **12V DC, ≥5A**. Peak load estimate: main pump (1.2A) + 3× dosing pumps
+(0.75A each, only when stepping) + ATO valve (0.5A) + logic (0.5A) ≈ 4.5A peak, with
+all loads simultaneous being unlikely. 5A rated supply provides adequate headroom; 6A
+recommended for margin.
+
+| Model | Output | Efficiency | Form Factor | Notes | Price |
+|-------|--------|------------|-------------|-------|-------|
+| **Mean Well LRS-75-12** ★ | 12V / 6A (75W) | 89% | Enclosed metal, 30mm low-profile | Convection cooled, −30 to +70°C, widely available | ~$18–25 |
+| Mean Well LPV-60-12 | 12V / 5A (60W) | 83% | IP67 plastic, 162×43×32mm | Designed for LED strips; UL1310 Class 2 | ~$20–30 |
+| Mean Well MDR-60-12 | 12V / 5A (60W) | — | DIN rail | Compact DIN mount for panel/cabinet builds | ~$25–35 |
+| Mean Well HDR-60-12 | 12V / 4.5A (54W) | 91% | DIN rail | **Marginal** — only 4.5A, avoid | ~$20–30 |
+
+**Recommended: Mean Well LRS-75-12** — 6A provides a comfortable 1.5A headroom over
+worst-case peak load, enclosed metal case dissipates heat passively, and 30mm profile
+fits standard enclosures. Available from DigiKey, Mouser, and Amazon.
+
+**IP67 alternative: LPV-60-12** — Use in humid environments where the supply is mounted
+inside the grow enclosure. 5A is sufficient if loads are not fully simultaneous. Note:
+LPV series is designed as an LED driver (constant voltage); it works fine as a general
+12V supply but lacks remote sense.
+
+**Avoid HDR-60-12** — 4.5A output is marginal; derating at elevated temperature reduces
+it further.
+
+---
+
 ## Optional Accessories
 
 | Qty | Part | Description | Price |
@@ -173,7 +215,6 @@ Recommended:
 | 1 | SSD1306 OLED 0.96" | Local status display | $4 |
 | 1 | WS2812B LED | Status indicator | $0.50 |
 | 1 | Buzzer (passive) | Alarm notification | $0.50 |
-| 1 | 12V 5A power supply | Mean Well or equiv | $10-20 |
 | 4 | Silicone tubing 3mm | Dosing pump tubing, 1m each | $2/m |
 | 1 | Calibration solutions | pH 4, 7, 10 + EC standards | $15-25 |
 
