@@ -106,8 +106,7 @@ Reverse polarity (supply plugged backwards → Source at −24V):
 - Vgs = −21.8 − (−24) = **+2.2V** → P-ch FET stays OFF; channel does not conduct
 
 ⚠ **Component rating note — SI2301 is not suitable for 24V:**
-The SI2301 has Vds(max) = −20V. On reverse polarity the full supply voltage appears
-across D-S; at 24V this exceeds the rating. Replace with a 30V-rated SOT-23 device.
+The SI2301 has Vds(max) = −20V. On reverse polarity the full supply voltage appears across D-S; at 24V this exceeds the rating. Replace with a 30V-rated SOT-23 device.
 
 **Recommended replacement: AO3401A** (P-ch, −30V Vds, 4A, Rds(on) 45mΩ, SOT-23)
 - Vgs(th) = −0.45 to −1V; Vgs = −2.2V with the 10kΩ/100kΩ divider → FET fully ON
@@ -117,12 +116,9 @@ across D-S; at 24V this exceeds the rating. Replace with a 30V-rated SOT-23 devi
 ### 1.3 Buck Converter
 
 **Design Rationale — why a switching buck converter for 24V→5V:**
-A linear regulator dropping 24V to 5V would dissipate P = (24−5) × I = 19×I watts as
-heat. At 500mA load that's 9.5W — requiring a large heatsink and dominating PCB thermal
-budget. The TPS62933 synchronous buck operates at ~90% efficiency: at 500mA load it
-dissipates only ~(1−0.9) × 24×0.5 = 1.2W. Noise and ripple from the switcher are
-acceptable on the 5V rail, which only powers the HC-SR04 and WS2812B; sensitive
-analog/RF loads run on the 3.3V LDO downstream.
+A linear regulator dropping 24V to 5V would dissipate P = (24−5) × I = 19×I watts as heat. At 500mA load that's 9.5W — requiring a large heatsink and dominating PCB thermal budget. The TPS62933 synchronous buck operates at ~90% efficiency: at 500mA load it
+dissipates only ~(1−0.9) × 24×0.5 = 1.2W.
+Noise and ripple from the switcher are acceptable on the 5V rail, which only powers the HC-SR04 and WS2812B; sensitive analog/RF loads run on the 3.3V LDO downstream.
 
 **24V to 5V (Logic/USB)**
 ```
@@ -204,12 +200,7 @@ Why 1000µF?
 
 **Design Rationale — why a linear LDO for 5V→3.3V:**
 The ESP32-C6's RF (Wi-Fi 6, BLE 5) and 12-bit SAR ADC are sensitive to supply noise.
-A switching regulator on the 3.3V rail would inject switching ripple at its operating
-frequency (hundreds of kHz) directly into the ADC reference and RF supply — degrading
-ADC accuracy and potentially increasing Wi-Fi packet error rate. An LDO has no switching
-element; its output noise floor is limited only by its PSRR and output capacitance,
-typically <50µVrms. The 1.7V dropout (5V→3.3V) means only P = 1.7 × 0.35 = 0.6W worst
-case — manageable on a small SOT-223 package without a heatsink.
+A switching regulator on the 3.3V rail would inject switching ripple at its operating frequency (hundreds of kHz) directly into the ADC reference and RF supply — degrading ADC accuracy and potentially increasing Wi-Fi packet error rate. An LDO has no switching element; its output noise floor is limited only by its PSRR and output capacitance, typically <50µVrms. The 1.7V dropout (5V→3.3V) means only P = 1.7 × 0.35 = 0.6W worst case — manageable on a small SOT-223 package without a heatsink.
 
 ```
 5V ──┬──[10µF]──┬──► VIN ┌─────────┐ VOUT ──┬──[10µF]──┬──► 3.3V
@@ -280,7 +271,6 @@ IMPORTANT Power Supply Selection:
 - Use PSU with built-in soft-start (Mean Well LRS-150-24 ✅)
 - Generic PSUs may trip overcurrent during capacitor charging + motor startup
 - Without soft-start: inrush can exceed 10A briefly (2.2mF × dV/dt)
-```
 
 ### 1.6 PCB Layout Guidelines for Power Integrity
 
@@ -288,7 +278,7 @@ IMPORTANT Power Supply Selection:
 
 1. **Star Ground Configuration:**
    ```
-   ESP32 GND ──┐
+   ESP32 GND ───┐
    Sensors GND ─┼──► Single ground point at 24V PSU GND terminal
    Pumps GND ───┘
 
@@ -392,8 +382,7 @@ LAST RESORT - Optocoupler Isolation:
 
 ### 2.1 DevKit Pin Headers
 
-The ESP32-C6-DevKitC-1-N8 mounts to the carrier PCB via 2×20 pin headers.
-USB-C, boot/reset buttons, antenna, and power regulation are on the DevKit.
+The ESP32-C6-DevKitC-1-N8 mounts to the carrier PCB via 2×20 pin headers. USB-C, boot/reset buttons, antenna, and power regulation are on the DevKit.
 
 ```
                     ┌─────────────────────────────────────┐
@@ -404,18 +393,18 @@ USB-C, boot/reset buttons, antenna, and power regulation are on the DevKit.
            3.3V ────┤ 3V3                            GND  ├──── GND
             5V ─────┤ 5V (from USB or external)           │
                     │                                     │
-   FLOAT_LOW ──────┤ GPIO0  (input)                      │
+    FLOAT_LOW ──────┤ GPIO0  (input)                      │
    FLOAT_HIGH ──────┤ GPIO1  (input)                      │
-    ATO_VALVE ──────┤ GPIO2  (output)              │
+    ATO_VALVE ──────┤ GPIO2  (output)                     │
        US_ECHO ─────┤ GPIO3  (input)                      │
        I2C_SDA ─────┤ GPIO4  (bidirectional)              │
        I2C_SCL ─────┤ GPIO5  (output)                     │
-     EZO_PDIS ─────┤ GPIO6  (output)                     │
+      EZO_PDIS ─────┤ GPIO6  (output)                     │
                     │                                     │
       US_TRIG ──────┤ GPIO7  (output)                     │
                     │                                     │
      (reserved) ────┤ GPIO8  (RGB LED on DevKit)          │
-   (available) ────┤ GPIO9  (strapping pin — 45kΩ pullup)  │
+    (available) ────┤ GPIO9  (strapping pin — 45kΩ pullup) │
      PUMP_MAIN ─────┤ GPIO10 (output)                     │
     STEP_PH_DN ─────┤ GPIO11 (output)                     │
                     │                                     │
@@ -426,9 +415,9 @@ USB-C, boot/reset buttons, antenna, and power regulation are on the DevKit.
     STEP_NUT_B ─────┤ GPIO19 (output)                     │
    (available) ─────┤ GPIO20 (available)                  │
                     │                                     │
-TMC2209_UART_RX ───┤ GPIO21 (input)                      │
-TMC2209_UART_TX ───┤ GPIO22 (output)                     │
-   (available) ────┤ GPIO23 (available)                  │
+ TMC2209_UART_RX ───┤ GPIO21 (input)                      │
+ TMC2209_UART_TX ───┤ GPIO22 (output)                     │
+    (available) ────┤ GPIO23 (available)                  │
                     │                                     │
                     └─────────────────────────────────────┘
 
@@ -651,13 +640,13 @@ EZO-pH and EZO-EC (isolated via ADM3260):
                                          GPIO6 (EZO_PDIS)
                                               │
 ┌──────────────────────────────────────┐   ┌──┴───────────────────────┐
-│  EZO-pH (MEZZ3) or EZO-EC (MEZZ2)   │   │  ADM3260 (U3 or U4)      │
+│  EZO-pH (MEZZ3) or EZO-EC (MEZZ2)    │   │  ADM3260 (U3 or U4)      │
 │                                      │   │                          │
-│   VCC ◄──── 3.3V_ISO ───────────────┼───┤ isoPower out   VCC1◄─3.3V│
-│   GND ◄──── GND_ISO  ───────────────┼───┤ GND_ISO        PDIS◄─────┘
-│   SDA ◄───► I2C SDA  ───────────────┼───┤ SDA2 ◄──► SDA1           │
-│   SCL ◄──── I2C SCL  ───────────────┼───┤ SCL2 ◄─── SCL1           │
-│   PRB ◄──── BNC panel-mount         │   └──────────────────────────┘
+│   VCC ◄──── 3.3V_ISO ────────────────┼───┤ isoPower out   VCC1◄─3.3V│
+│   GND ◄──── GND_ISO  ────────────────┼───┤ GND_ISO        PDIS◄─────┘
+│   SDA ◄───► I2C SDA  ────────────────┼───┤ SDA2 ◄──► SDA1           │
+│   SCL ◄──── I2C SCL  ────────────────┼───┤ SCL2 ◄─── SCL1           │
+│   PRB ◄──── BNC panel-mount          │   └──────────────────────────┘
 │                                      │
 └──────────────────────────────────────┘
 
@@ -675,11 +664,11 @@ EZO-RTD (MEZZ1, no isolation):
 ┌──────────────────────────────────────┐
 │  EZO-RTD (MEZZ1)                     │
 │                                      │
-│   VCC ◄──── 3.3V                    │
-│   GND ◄──── GND                     │
-│   SDA ◄───► I2C SDA                 │
-│   SCL ◄──── I2C SCL                 │
-│   PRB ◄──── BNC panel-mount         │
+│   VCC ◄──── 3.3V                     │
+│   GND ◄──── GND                      │
+│   SDA ◄───► I2C SDA                  │
+│   SCL ◄──── I2C SCL                  │
+│   PRB ◄──── BNC panel-mount          │
 │                                      │
 └──────────────────────────────────────┘
 
@@ -1884,7 +1873,7 @@ closer to or farther from the reed switch as the water level changes.
                 ║  Reed      ║
                 ║  Switch    ║  ← magnet near = contacts CLOSED
     ┌───┤≈────╗ ║            ║
-    │  float  ╚═╗  ──────── ║
+    │  float  ╚═╗  ───────── ║
     │   arm     ║  contacts  ║
     └───────────╚════════════╝
 
@@ -1943,7 +1932,7 @@ When water drops below the switch, the float arm falls → reed opens → circui
        │                          │
        │  [operating range]       │
        │                          │
-       │       FLOAT_LOW         │ ← LOW mark: pump stops here
+       │       FLOAT_LOW          │ ← LOW mark: pump stops here
        │          ●               │   (e.g., 50mm above bottom)
        │                          │
        └──────────────────────────┘
@@ -1974,9 +1963,9 @@ When water drops below the switch, the float arm falls → reed opens → circui
    Outside of reservoir wall:     Inside of reservoir:
 
      ┌────────────────┐             ┌─────────────────┐
-     │   NPT threads  │             │                  │
-     │ LLLLL LH25 body│═════════════│  ←arm swings     │
-     │  (hinge DOWN)  │             │   freely here     │
+     │   NPT threads  │             │                 │
+     │ LLLLL LH25 body│═════════════│  ←arm swings    │
+     │  (hinge DOWN)  │             │   freely here   │
      └────────────────┘             └─────────────────┘
            ↑
       Wire exits here
@@ -2092,6 +2081,7 @@ Q1: IRLR2905 (Logic-level N-MOSFET, DPAK/TO-252)
 
 D1: SS34 (3A Schottky flyback diode, SMC)
 - Handles main pump inductive kickback
+```
 
 **Main Pump Specifications:**
 
@@ -2282,19 +2272,15 @@ Pump Side Connection Options:
 - Keep Q1 and screw terminal close to minimize trace resistance
 - Add test points for 24V_SWITCHED and GND for diagnostics
 - **C2 (100nF bypass)**: Place within 5mm of Q1 DRAIN pin for best performance
-```
 
 ### 7.2 24V Dosing Pump Drivers — TMC2209 Stepper (×3)
 
 > **Design decision — Stepper over DC motor, and Nutrient A/B on separate channels:**
-> DC peristaltic pumps require periodic flow-rate calibration; stepper-driven pumps dose
-> by step count × pump displacement, which is stable between calibrations. TMC2209
-> StealthChop2 provides near-silent operation. Nutrient A and B use separate STEP lines
-> (GPIO15, GPIO19) but share DIR (GPIO18) — they always dose in the same direction.
-> Cost delta vs combined channel: ~$3 (one TMC2209). See ARCHITECTURE.md §2 and §8.
+> DC peristaltic pumps require periodic flow-rate calibration; stepper-driven pumps dose by step count × pump displacement, which is stable between calibrations. TMC2209 StealthChop2 provides near-silent operation.
+Nutrient A and B use separate STEP lines (GPIO15, GPIO19) but share DIR (GPIO18) — they always dose in the same direction. 
+Cost delta vs combined channel: ~$3 (one TMC2209). See ARCHITECTURE.md §2 and §8.
 
-Three TMC2209 stepper drivers (QFN-28) each drive one Kamoer KAS SF-12V bipolar stepper
-peristaltic pump. All drivers operate in **UART mode** via GPIO21/22 (ESP32-C6 UART1).
+Three TMC2209 stepper drivers (QFN-28) each drive one Kamoer KAS SF-12V bipolar stepper peristaltic pump. All drivers operate in **UART mode** via GPIO21/22 (ESP32-C6 UART1).
 StealthChop2 is active by default at the low step rates used for dosing.
 
 **TMC2209 UART Configuration:**
@@ -2340,38 +2326,24 @@ ESP32 GPIO21 (RX) ────────────┘        │
 > Source: [TMC2209 Datasheet Rev 1.09, §4.3 UART Signals](https://www.analog.com/media/en/technical-documentation/data-sheets/tmc2209_datasheet_rev1.09.pdf)
 
 **1kΩ on GPIO22 TX:**
-PDN_UART is an open-drain bidirectional pin. When the ESP32 TX drives HIGH to send a
-command, and the TMC2209's open-drain output momentarily pulls the bus LOW to begin
-its response (a brief overlap before software tri-states TX), a low-impedance conflict
-occurs between TX driving HIGH and the open-drain pulling LOW. The 1kΩ on TX limits
-the fault current during this window to (3.3V / 1kΩ) = 3.3 mA — safe for both the
-ESP32 output driver and the TMC2209 PDN_UART. RX is connected directly because it
-is a high-impedance input that only monitors the bus voltage; no protection is needed.
+PDN_UART is an open-drain bidirectional pin. When the ESP32 TX drives HIGH to send a command, and the TMC2209's open-drain output momentarily pulls the bus LOW to begin its response (a brief overlap before software tri-states TX), a low-impedance conflict occurs between TX driving HIGH and the open-drain pulling LOW. The 1kΩ on TX limits the fault current during this window to (3.3V / 1kΩ) = 3.3 mA — safe for both the ESP32 output driver and the TMC2209 PDN_UART. RX is connected directly because it is a high-impedance input that only monitors the bus voltage; no protection is needed.
 
-Configure ESP32-C6 UART1 in **half-duplex / single-wire mode** so TX is tri-stated
-(high-impedance) during the receive window. The TMC2209 then pulls the bus LOW
-open-drain to transmit its response, with no conflict from TX.
+Configure ESP32-C6 UART1 in **half-duplex / single-wire mode** so TX is tri-stated (high-impedance) during the receive window. The TMC2209 then pulls the bus LOW open-drain to transmit its response, with no conflict from TX.
 
 **100Ω on each PDN_UART pin:**
-All three drivers share the same bus node. When one driver responds, its open-drain
-output pulls that driver's PDN_UART pin LOW. Without isolation, this LOW would also
-be seen at the PDN_UART pin of the other two non-responding drivers, which could
-corrupt their internal UART state (treating the bus activity as addressed to them).
-The 100Ω series resistor on each PDN_UART pin creates a small voltage drop that
-decouples each driver's input from the bus during contention, and limits the current
-path between drivers if two open-drain outputs are momentarily both active.
+All three drivers share the same bus node. When one driver responds, its open-drain output pulls that driver's PDN_UART pin LOW. Without isolation, this LOW would also be seen at the PDN_UART pin of the other two non-responding drivers, which could
+corrupt their internal UART state (treating the bus activity as addressed to them). 
+The 100Ω series resistor on each PDN_UART pin creates a small voltage drop that decouples each driver's input from the bus during contention, and limits the current path between drivers if two open-drain outputs are momentarily both active.
 
 **Circuit (same topology for U5/U6/U7 — MS1/MS2 differ per address table):**
 
 ```
                 24V (VM)
-                   │
-           ┌───┬──┴──┬───┐
-           │   │     │   │
-        100µF 100nF ─┴─  │     ← 100µF bulk + 100nF local bypass per driver
-           │   │    GND  │
-           └───┴─────────┤
-                     VM  │
+                  │
+           ┌───┬──┴──────┐
+           │   │         │
+        100µF 100nF      │  ← 100µF bulk + 100nF local bypass per driver
+          ─┴─ ─┴─     VM │
               ┌──────────┴───────────┐
  3.3V ───────►│ VIO                  │
  GND ────────►│ GND                  │
@@ -2386,9 +2358,8 @@ UART bus─100Ω►│ PDN_UART             │   ← bus: GPIO22─1kΩ─┤; 
   GND ───────►│ SPREAD               │
   GND ───────►│ STDBY                │   ← tied LOW; STDBY resets all UART regs if pulsed
               │                      │
-3.3V─4.7kΩ──►├─ VREF ──1kΩ──► GND   │   ← ~0.58V, full-scale ~1.32A
-              │      TMC2209          │
-              │     (QFN-28)          │
+see below  ──►│ VREF                 │   ← ~0.58V, full-scale ~1.32A
+              │      TMC2209         │
               └──────────────────────┘
   * MS1/MS2 per address table: U5=GND/GND, U6=3.3V/GND, U7=GND/3.3V
 ```
@@ -2403,52 +2374,49 @@ GPIO22 ──► TMC2209_UART_TX  (UART1 TX — shared bus drive, 1kΩ series to
 GPIO20 ──  (available — STEPPER_EN not needed; EN tied to GND)
 ```
 
-**DIR hardwired to 3.3V** on all three drivers. Peristaltic pumps are self-sealing —
-the rollers pinch the tube closed when stopped, so backflow cannot occur and direction
-reversal is never needed. If a pump runs backwards on first install, swap the coil A
-wires (OA1 ↔ OA2) on the connector.
+**DIR hardwired to 3.3V** on all three drivers. Peristaltic pumps are self-sealing — the rollers pinch the tube closed when stopped, so backflow cannot occur and direction reversal is never needed. If a pump runs backwards on first install, swap the coil A wires (OA1 ↔ OA2) on the connector.
 
-**RSENSE resistors (BRA, BRB — 220mΩ each):**
-BRA and BRB are the low-side current sense points of the H-bridge for coil A and coil B
-respectively. A 220mΩ shunt resistor connects each pin to GND. The TMC2209 measures the
-voltage drop across this resistor to determine actual coil current, then adjusts its PWM
-chopper duty cycle to regulate current to the IRUN/IHOLD target.
+**SENSE resistors (R<sub>sa</sub> and R<sub>sb</sub>):**
+BRA and BRB are the low-side current sense points of the H-bridge for coil A and coil B respectively. A shunt resistor connects each pin to GND. The TMC2209 measures the voltage drop across this resistor to determine actual coil current, then adjusts its PWM chopper duty cycle to regulate current to the IRUN/IHOLD target.
 
-```
-OA1 ──► coil A+ ──[motor]── coil A- ──► OA2
-                                          │
-                              (H-bridge low side)
-                                          │
-                                        BRA ──── 220mΩ ──── GND
-                                          ↑
-                              V_sense = I_coil × 0.22Ω
-                              at 0.75A:  V_sense = 165mV
-```
+> All currents in this section are RMS currents. 
 
-The same applies to BRB for coil B. Both coils carry different currents at each
-microstep position, so independent measurement is required.
+Following the TMC2209 datasheet Ch. 8 recommendation for the A200SX 1.7A motor.
+> **R<sub>s</sub> = 120mΩ**
 
-The RSENSE value sets full-scale current together with VREF:
+Based on the formula from chapter 9 of the datasheet:
+> **I<sub>max</sub> = V<sub>fs</sub> / (R<sub>s</sub>+20mΩ) * 1 / √2**, where V<sub>fs</sub> is the full-scale voltage as determined by the `vsense control bit`. Default is 325mV.
 
-```
-I_full_scale = VREF / (2 × RSENSE) = 0.58V / (2 × 0.22Ω) = 1.32A peak
-IRUN = 18  →  (18+1)/32 × 1.32A ≈ 0.78A peak  (target: 0.75A)
-```
+So with a R<sub>s</sub> = 120mΩ and V<sub>fs</sub> = 325mV
+> **I<sub>max</sub>** = 325mV / (120mΩ+20mΩ) * 1 / √2 = **1.77A**,
 
-**Why 220mΩ:**
-- Too low (e.g. 100mΩ): V_sense = 75mV at 0.75A — marginal measurement accuracy,
-  poor StallGuard4 resolution at low current
-- Too high (e.g. 500mΩ): P = I²R = 0.75² × 0.5 = 0.28W per resistor;
-  × 2 resistors × 3 drivers = **1.7W** wasted as heat in the sense resistors alone
-- At 220mΩ: V_sense = 165mV (good resolution); P = 0.75² × 0.22 = **0.12W per
-  resistor** → 0.72W total across all 6 — acceptable
+Set a hard limit using the V<sub>REF</sub> input of the TMC2209. This linearly scales the maximum current. To cap the operating range in hardware at 90%, apply a 
+> **V<sub>REF</sub>** = (0.9 * 1.7A) / 1.77A * 2.5V = **2.161V**
 
-The sense voltage is also used by StealthChop2 (current-mode PWM feedback) and
-StallGuard4 (coil current deviation from expected pattern signals a stall).
-Use **1% tolerance, 1/4W** resistors. At nominal 0.75A peak (0.53A RMS): P = 62mW — well
-within 1/8W. However at full-scale IRUN=31 (1.32A peak): P = 190mW, which exceeds 1/8W.
-1/4W 0805 is the same footprint and cost; use it to cover firmware misconfiguration.
-RSENSE error is directly proportional to current error — 1% tolerance is required.
+Too create this voltage, use the 3.3V rail with a R<sub>H</sub> and R<sub>L</sub> voltage divider. Taking into account a R<sub>VREF</sub>=240MΩ, the required resistors follow as:
+> **R<sub>H</sub> = 3.92kΩ**
+> **R<sub>L</sub> = 7.68kΩ** (both E96 Series, 1%)
+
+At 90% of I<sub>max</sub>, the sense resistor R<sub>s</sub> will dissipate:
+>  **P<sub>d</sub> = I<sub>rms</sub><sup>2</sup> × R<sub>s</sub>** = (0.9 * 1.7A)<sup>2</sup> * 0.12Ω = 0.28W ⇒ choose **1/2W**
+
+With the current capped at 90% of 1.7A, we lower the current futher with the current scale specified by the `IHOLD_IRUN` register:
+> I<sub>rms</sub> = V<sub>REF</sub>/2.5V * (CS + 1)/32 * V<sub>fs</sub> / (R<sub>s</sub>+20mΩ) * 1 / sqrt(2), where V<sub>fs</sub> is the full-scale voltage as determined by the `vsense control bit`. Default is 325mV.
+
+Try an initial **70% or 80%** operating range by setting the **CS to 24 or 27**. Increase to 85–90% only if stalling occurs on aged tubing.
+
+CS value | Current limit| Target range
+---------|---------|-------------
+24       | 1.19A   | 70%
+25       | 1.24A   | 73%
+26       | 1.29A   | 76%
+27       | 1.34A   | 79%
+28       | 1.43A   | 81%
+29       | 1.39A   | 84%
+30       | 1.48A   | 87%
+31       | 1.53A   | 90%
+
+The sense voltage is also used by StealthChop2 (current-mode PWM feedback) and StallGuard4 (coil current deviation from expected pattern signals a stall).
 
 **Key UART registers to configure at startup:**
 
@@ -2742,7 +2710,6 @@ Valve Side Connection:
 3. Mount valve with coil vertical (prevents water ingress)
 4. Use thread sealant (Teflon tape or pipe dope) on NPT threads
 5. Test valve operation before connecting to reservoir
-```
 
 ### 7.4 MOSFET Selection Summary
 
@@ -2925,24 +2892,6 @@ The ESP32-C6-DevKitC-1 includes a built-in RGB LED (WS2812B) on GPIO8.
 No external status LED is needed on the OPNhydro PCB.
 
 Use GPIO8 in firmware for status indication (do not route GPIO8 to any PCB pad).
-
----
-
-## 9. Optional OLED Display
-
-```
-SSD1306 128x64 I2C OLED
-
-4-pin header (2.54mm):
-┌─────────────────────────┐
-│ Pin 1: GND ──► GND      │
-│ Pin 2: VCC ──► 3.3V     │
-│ Pin 3: SCL ──► I2C_SCL  │
-│ Pin 4: SDA ──► I2C_SDA  │
-└─────────────────────────┘
-
-I2C Address: 0x3C (default)
-```
 
 ---
 

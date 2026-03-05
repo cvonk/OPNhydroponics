@@ -9,7 +9,16 @@
       "WebFetch(domain:robu.in)",
       "WebFetch(domain:media.digikey.com)",
       "WebFetch(domain:www.gotronic.fr)",
-      "WebFetch(domain:www.adafruit.com)"
+      "WebFetch(domain:www.adafruit.com)",
+      "WebFetch(domain:ankoproducts.com)",
+      "WebFetch(domain:www.verderliquids.com)",
+      "WebFetch(domain:clarksol.com)",
+      "WebFetch(domain:en.drftwn.com)",
+      "WebFetch(domain:www.kamoer.com)",
+      "WebFetch(domain:pdf.medicalexpo.com)",
+      "WebFetch(domain:kamoer.com)",
+      "WebFetch(domain:m.media-amazon.com)",
+      "WebFetch(domain:www.amazon.com)"
     ]
   }
 }

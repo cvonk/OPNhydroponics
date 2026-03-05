@@ -5,44 +5,44 @@
 ESP32-C6 based NFT hydroponics controller with full sensor suite, dosing pump control, and automatic top-off (ATO) capability. Designed for Home Assistant integration via ESPHome with standalone operation support.
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                           24V DC INPUT                                   │
-│                               │                                          │
-│                    ┌──────────┴──────────┐                               │
-│                    │                     │                               │
-│                    ▼                     ▼                               │
-│              ┌─────────┐           ┌─────────┐                           │
-│              │ 24V Bus │           │ 5V DC   │                           │
-│              │ (Pumps) │           │ (Logic) │                           │
-│              └────┬────┘           └────┬────┘                           │
-│                   │                     │                                │
-│         ┌─────────┼─────────┐           ▼                                │
-│         ▼         ▼         ▼     ┌──────────┐                           │
-│   ┌──────────┐ ┌──────────┐ ┌─────┤ 3.3V LDO │                           │
-│   │Main Pump │ │ Dosing   │ │ ATO └────┬─────┘                           │
-│   │ MOSFET   │ │ MOSFETs  │ │Valve     │                                 │
-│   └──────────┘ └──────────┘ └─────┘    │                                 │
-│                                    ┌──────┴──────┐                       │
-│                                    │  ESP32-C6   │                       │
-│                                    │             │                       │
-│                                    └──────┬──────┘                       │
-│                                           │                              │
-│         ┌─────────────┬─────────────┬─────┴─────┬─────────────┐          │
-│         │             │             │          │
-│    ┌────┴────┐   ┌────┴────┐   ┌───┴───┐  ┌──────┴──────┐              │
-│    │  I2C    │   │  GPIO   │   │ UART  │  │    SPI      │              │
-│    │  Bus    │   │         │   │       │  │  (future)   │              │
-│    └────┬────┘   └────┬────┘   └───────┘  └─────────────┘              │
-│         │             │                                                 │
-│    ┌────┴───────┐  ┌──┴───────┐                                        │
-│    │ pH EZO     │  │Ultrasonic│                                        │
-│    │ EC EZO     │  │ HC-SR04  │                                        │
-│    │ RTD EZO    │  └──────────┘                                        │
-│    │ BH1750     │                                                      │
-│    │ BME280     │                                                      │
-│    │ OLED       │                                                      │
-│    └────────────┘                                                      │
-└──────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                           24V DC INPUT                      │
+│                               │                             │
+│                    ┌──────────┴──────────┐                  │
+│                    │                     │                  │
+│                    ▼                     ▼                  │
+│              ┌─────────┐           ┌─────────┐              │
+│              │ 24V Bus │           │ 5V DC   │              │
+│              │ (Pumps) │           │ (Logic) │              │
+│              └────┬────┘           └────┬────┘              │
+│                   │                     │                   │
+│         ┌─────────┼─────────┐           ▼                   │
+│         ▼         ▼         ▼        ┌──────────┐           │
+│   ┌──────────┐ ┌──────────┐ ┌─────┐  │ 3.3V LDO │           │
+│   │Main Pump │ │ Dosing   │ │ ATO │  └────┬─────┘           │
+│   │ MOSFET   │ │ MOSFETs  │ │Valve│       │                 │
+│   └──────────┘ └──────────┘ └─────┘       │                 │
+│                                    ┌──────┴──────┐          │
+│                                    │  ESP32-C6   │          │
+│                                    │             │          │
+│                                    └──────┬──────┘          │
+│                                           │                 │
+│         ┌─────────────┬────────────┬──────┴──────┐          │
+│         │             │            │             │          │
+│    ┌────┴────┐   ┌────┴────┐   ┌───┴───┐  ┌──────┴──────┐   │
+│    │  I2C    │   │  GPIO   │   │ UART  │  │    SPI      │   │
+│    │  Bus    │   │         │   │       │  │  (future)   │   │
+│    └────┬────┘   └────┬────┘   └───────┘  └─────────────┘   │
+│         │             │                                     │
+│    ┌────┴───────┐  ┌──┴───────┐                             │
+│    │ pH EZO     │  │Ultrasonic│                             │
+│    │ EC EZO     │  │ HC-SR04  │                             │
+│    │ RTD EZO    │  └──────────┘                             │
+│    │ BH1750     │                                           │
+│    │ BME280     │                                           │
+│    │ OLED       │                                           │
+│    └────────────┘                                           │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Design Decisions
@@ -65,9 +65,115 @@ To prevent ground loops and probe interference (especially between pH and EC), w
 
 **Selected: Option B** - Better accuracy, easier software, worth the cost for medium scale.
 
-### 2. Dosing Pump Selection
+### 2. Dosing Requirements
 
-**Selected: Kamoer KAS SF-12V stepper peristaltic pump + TMC2209 stepper driver**
+#### 2.1 Reservoir Size Selection
+
+**Selected: 200 L (minimum). Larger is better.**
+
+For pH and nutrient stability, reservoir volume is the single most effective passive stabiliser:
+
+**pH stability**
+- pH adjustment is a concentration change in the bulk solution. A larger volume has greater
+  chemical inertia: the same dose of acid or base produces a proportionally smaller pH shift.
+  At 200 L a 5 mL shot of 85% phosphoric acid moves pH by ~0.05–0.1 units; at 40 L the same
+  dose moves it ~0.25–0.5 units. Larger volume → smaller overshoot risk → fewer correction
+  cycles → less total acid consumed.
+- Carbon dioxide exchange and plant root exudates drive continuous pH creep. A larger volume
+  creeps more slowly, giving the controller more time between corrections.
+
+**Nutrient (EC) stability**
+- Water evaporates; plants take up water and nutrients at different ratios. Both effects shift
+  EC. In a larger reservoir these shifts accumulate more slowly, so the controller doses less
+  frequently and EC stays within the target window for longer between events.
+- A single top-off event (adding plain water) causes a smaller EC dilution in 200 L than in
+  40 L, reducing the magnitude of the corrective nutrient dose that follows.
+
+**Thermal stability**
+- Nutrient uptake rates and EC calibration are temperature-dependent. A larger thermal mass
+  buffers day/night and seasonal temperature swings, reducing measurement noise and the need
+  for temperature-compensation corrections.
+
+**Practical trade-offs at 200 L**
+- Weight: 200 kg when full — floor loading and structural support must be considered.
+- Initial chemical cost: ~1–1.4 L of nutrient concentrate per part for first fill.
+- Mixing: NFT return flow provides circulation. A 200 L reservoir may benefit from a small
+  submersible agitator or the return-pipe positioned to create turbulence, to prevent
+  stratification and ensure the sensors read a representative sample.
+- Refill logistics: larger volume means less frequent top-offs, but each top-off event
+  requires a larger water volume. An ATO (§5) handles this automatically.
+
+**Light and contamination control**
+- Light proofing: the reservoir must be fully opaque. Any light penetration drives algae
+  growth, which consumes nutrients, clogs the system, and destabilises pH. Black HDPE tanks
+  or IBC totes with an opaque cover are preferred; translucent containers must be wrapped
+  or painted.
+- Lid: use a tight-fitting lid at all times. A lid reduces evaporation (slowing EC drift),
+  blocks ambient light, and prevents dust, insects, and debris from entering the solution.
+  Cut-outs for plumbing and sensor cables should be kept as small as practical and sealed
+  with foam or rubber grommets.
+
+**Industry sizing rule**
+
+The hydroponic industry commonly uses plant count as the sizing basis:
+
+| Crop type | Rule | 200 L capacity | 300 L capacity |
+|-----------|------|----------------|----------------|
+| Leafy greens / herbs | 1 US gal (~3.8 L) per plant | ~53 plants | ~79 plants |
+| Fruiting crops (tomatoes, peppers) | 2+ US gal (~7.6 L) per plant | ~26 plants | ~39 plants |
+
+The rationale is that fruiting crops have higher and more variable water and nutrient uptake,
+so a larger buffer per plant is needed to prevent rapid EC and pH swings between dosing events.
+The minimum is a lower bound — more volume per plant always improves stability.
+
+200 L comfortably supports a medium-scale home NFT system at either crop type. For a mixed
+planting (e.g. herbs + one tomato row), use the fruiting-crop rule for the whole reservoir.
+A 300–500 L IBC tote scales the same system to ~80 herb sites or ~40 fruiting sites with
+better chemical inertia and less frequent dosing.
+
+#### 2.2 Per-Event Dose Estimates
+
+The table below gives per-event dose estimates for a nominal **200 L reservoir**. Doses are
+applied incrementally: the controller pumps a small volume, waits for mixing, re-measures, and
+repeats as needed. Actual volumes scale with reservoir size and source-water chemistry.
+
+| Channel | Event | Dose per step | Steps to target | Total volume | Step window | Required flow rate (100% DC) |
+|---------|-------|--------------|-----------------|--------------|-------------|------------------------------|
+| Nutrients A | Initial fill | 50–100 mL | 10–20 | 500–1,400 mL | 60–120 s | 25–100 mL/min |
+| Nutrients B | Initial fill | 50–100 mL | 10–20 | 500–1,400 mL | 60–120 s | 25–100 mL/min |
+| Nutrients A | Maintenance | 10–50 mL | 2–5 | 20–250 mL | 60–120 s | 5–50 mL/min |
+| Nutrients B | Maintenance | 10–50 mL | 2–5 | 20–250 mL | 60–120 s | 5–50 mL/min |
+| pH Down | Initial correction | 3–5 mL | 6–12 | 18–60 mL | 60 s | 3–5 mL/min |
+| pH Down | Maintenance trim | 1–3 mL | 1–3 | 1–9 mL | 60 s | 1–3 mL/min |
+
+**Assumptions:** 200 L reservoir (large NFT installation, ~20–40 channels); 2-part nutrients at
+5–7 mL/L (standard hydroponic concentrate); pH Down = 85% phosphoric acid at ~1–2 mL/10 L per pH unit correction; tap water pH 7.0–7.5, target pH 5.8–6.2; EC target 1.5–2.5 mS/cm.
+pH Down steps are kept ≤5 mL to avoid overshoot on a large volume. Step window (minimum 60 s) includes pump-on time plus mix-and-settle time before the next sensor reading.
+
+**Flow-rate conclusions that drive pump selection:**
+
+The A200SX is rated for 50% duty cycle (300 s on-time limit). Dosing steps are seconds long,
+so the thermal limit is never approached. However, the 50% duty cycle is applied as a design
+margin: the pump runs for 50% of the step window, leaving the remaining 50% for mixing and
+settling before the next measurement. This doubles the required instantaneous flow rate
+relative to continuous pumping over the full window.
+
+| Channel | Flow rate (continuous) | Flow rate (50% DC) | Pump bore limit | Margin |
+|---------|------------------------|---------------------|-----------------|--------|
+| Nutrients A/B | ~50 mL/min | ~100 mL/min | 1/8″ bore: 219 mL/min | 2.2× |
+| pH Down | ~5 mL/min | ~10 mL/min | 1/16″ bore: 54 mL/min | 5.4× |
+
+These ranges directly inform bore selection in §3: the A200SX 1/8″ bore (0.003–219 mL/min)
+covers nutrients with 2× headroom at 50% duty cycle; the 1/16″ bore (0.001–54 mL/min)
+handles pH Down with 5× headroom, supporting fine micro-dosing at low RPM.
+
+### 3. Dosing Pump Selection
+
+24V is used because it enables a broader selection of main circulation pumps and ATO
+solenoid valves, which are voltage-sensitive (unlike current-regulated stepper drivers).
+Both the A200SX and KAS-SE-B are rated 24V native — no voltage-compatibility caveat applies.
+
+**Selected: ANKO A200SX (all three dosing channels) + TMC2209 stepper drivers**
 
 Peristaltic pumps are used for:
 - Self-priming capability
@@ -80,37 +186,69 @@ supply voltage and tubing wear, requiring periodic re-calibration to maintain do
 accuracy. Stepper-driven pumps dose by step count × pump displacement constant —
 calibration is a one-time measurement and accuracy is maintained until tubing replacement.
 
-**Pump — Kamoer KAS SF-12V:**
-- Voltage: 12V
-- Current: 0.75A
-- Flow rate: ~11.5–71.5 mL/min (3-rotor head, speed-dependent)
-- Tubing: 3mm ID × 5mm OD, silicone or BPT
-- Motor: bipolar stepper (4-wire)
-- Order without bundled drive board; TMC2209 used instead
+**Pump — ANKO A200SX (24V): $90 (ankoproducts.com) — all three dosing channels**
+- Voltage: 24V
+- Current: 1.7A rated; Motor: NEMA 17 (42mm) high-precision bipolar hybrid stepper, 1.8°/step — direct TMC2209 drop-in
+- Max outlet pressure: 25 psi; polycarbonate head, acetal rollers
+- Duty cycle: 50% max (300 s on-time limit) — dosing pulses are seconds; well within limit
+- Connector: NEMA 17 pancake convention — JST PH 2.0mm 4-pin on motor body; cable free end
+  terminates in JST XH 2.5mm 4-pin (commonly mislabelled "XH 2.54mm" in 3D printer context;
+  XH series is 2.5mm pitch, not 2.54mm DuPont). PCB footprint: B4B-XH-A; verify on receipt
+- Source: [ankoproducts.com/products/a200sx](https://ankoproducts.com/products/a200sx)
+- Tubing: Performance Class (Norprene® or equivalent), no-tool tube change; bore selected per channel:
+
+| Channel | Bore | Flow range (0.1–300 RPM) | Rationale |
+|---------|------|--------------------------|-----------|
+| PUMP_PH_DN | 1/16″ | 0.001–54 mL/min | Small precise doses; low minimum essential |
+| PUMP_NUT_A | 1/8″ | 0.003–219 mL/min | Sufficient flow for nutrient doses |
+| PUMP_NUT_B | 1/8″ | 0.003–219 mL/min | Same as NUT_A (dosed simultaneously at 1:1) |
+
+Norprene is chemically resistant to phosphoric and citric acid (pH Down) as well as nutrient
+solutions — a single tube material suits all channels. Silicone is not recommended for pH Down.
+
+TMC2209 thermal at 1.7A: copper pour + thermal vias on PCB (standard practice) keeps
+Tj ~73°C at 30°C ambient; very low dosing duty cycle (seconds/day) keeps this transient.
+
+**Alternative considered — Kamoer KAS-SE-B (24V): ~$95 (AliExpress; ~$64 new-shopper)**
+- Voltage: 24V; Current: 1.2A; Power: 20W; Rotors: 3; Motor life: 6,000h; tube life (BPT): 1,000h
+- Motor: NEMA 17 (42mm) high-precision bipolar hybrid stepper, 1.8°/step — direct TMC2209 drop-in
+- Connectors: JST PH 2.0mm 6-pin on motor body; JST XH 2.5mm 4-pin free end (PCB side,
+  confirmed from AliExpress photos); datasheet label "XH2.54" is a misnomer — XH is 2.5mm pitch
+- Tubing: BPT (Bioprene) only; acid/alkali resistant — suitable for all channels
+
+| Tube code | Material | ID × OD | Max flow (300 RPM) |
+|-----------|----------|---------|-------------------|
+| B06 | BPT | 2.0mm × 4.0mm | 42 mL/min |
+| B08 | BPT | 2.5mm × 4.5mm | 66 mL/min |
+| B10 | BPT | 3.0mm × 5.0mm | 88 mL/min |
+
+*Not selected because:* BPT tube bore range (2–3mm ID minimum) does not provide a small
+enough bore for precision pH Down dosing; the A200SX 1/16″ bore gives an order-of-magnitude
+lower minimum flow for that channel. Lower current (1.2A vs 1.7A) is an advantage but not
+sufficient to offset the bore limitation. Lower unit cost (~$95 vs $90 at regular price)
+is marginal.
 
 **Driver — Trinamic TMC2209 (QFN-28, UART mode):**
 - VM: 4.75–29V (24V rail used)
 - Logic: 3.3V
-- Current: 2A RMS rated; set to 0.75A via IRUN register (RSENSE=220mΩ, VREF=0.58V)
 - StealthChop2: near-silent operation at low step rates
 - 1/256 microstepping via UART register (MS1/MS2 used for bus addressing)
 - UART mode (GPIO21 RX / GPIO22 TX): all 3 drivers share one bus; addresses 0/1/2 via MS1/MS2;
   IHOLD=0 → zero standstill current; EN tied to GND (permanently enabled)
-- Standalone fallback: PDN_UART 100kΩ to 3.3V, MS1/MS2 set microstepping, EN→GPIO20; see §7.2
+- Standalone fallback: PDN_UART 100kΩ to 3.3V, MS1/MS2 set microstepping, EN→GPIO20; see §8.2
 - DIAG pin available for StallGuard4 fault detection (optional in v1)
 
-**Note on 24V supply and dosing pump compatibility:**
-The system uses a single 24V rail throughout. The Kamoer KAS SF-12V is labeled "12V" but
-the TMC2209 current-regulating chopper driver (VM range 4.75–29V) limits coil current to
-the VREF/RSENSE setpoint (0.75A) regardless of supply voltage. At the low step rates used
-for dosing, back-EMF is negligible, so supply power ≈ I²×R_coil — independent of VM.
-Running the stepper at 24V VM with the same 0.75A setpoint is electrically equivalent to
-12V VM from the motor's perspective.
+**Current setting and operating margin:**
 
-24V is used because it enables a broader selection of main circulation pumps and ATO
-solenoid valves, which are voltage-sensitive (unlike current-regulated stepper drivers).
+Choose a target operating range of **70–90% of the rated I<sub>max</sub>** to reduce motor and driver temperature and extend service life. Very low thermal duty cycle (dosing pulses are seconds long) means thermal risk is minimal, but the margin also guards against stall on aged or swollen tubing.
 
-### 3. ESP32-C6 Module Selection
+The current can be limited via two means. The V<sub>REF</sub> input of the TMC2209 can provide a hard limit.  Use this to limit the current to 90%.
+
+The firmware can use the `IHOLD_IRUN` register to further lower the current.
+
+Configure `IHOLD=0` (zero standstill current) via UART, so sense resistors and motor carry no current between dosing events.
+
+### 4. ESP32-C6 Module Selection
 
 Options:
 - **ESP32-C6-WROOM-1** - Bare module, requires antenna trace design and USB circuit
@@ -118,7 +256,7 @@ Options:
 
 Selected: **ESP32-C6-DevKitC-1-N8** (8MB flash) - Includes USB-C, PCB antenna, boot/reset buttons, and RGB LED. Mounts to carrier PCB via pin headers.
 
-### 4. Automatic Top-Off (ATO) System
+### 5. Automatic Top-Off (ATO) System
 
 Uses existing ultrasonic sensor for level detection with a normally-closed solenoid valve:
 - **Detection**: Ultrasonic sensor monitors water level continuously
@@ -127,17 +265,17 @@ Uses existing ultrasonic sensor for level detection with a normally-closed solen
 - **User confirmation**: System requests approval via Home Assistant before filling
 - **Timeout**: Maximum fill time prevents overflow if sensor fails
 
-### 5. Standalone Operation
+### 6. Standalone Operation
 
 The controller operates independently when Home Assistant is unavailable:
 - Local pH control: Once daily at 10:00 AM (avoids temperature-induced pH fluctuations)
-  - Doses pH Down only — pH creep is always upward; no pH Up pump fitted (see §9)
+  - Doses pH Down only — pH creep is always upward; no pH Up pump fitted (see §10)
 - Local EC control: Doses nutrients when EC drops below threshold (every 10 min)
 - Safety interlocks: Float switch protection always active
 - ATO: Requires HA for user confirmation (manual override via physical button possible)
 - Data logging: Buffers readings until HA reconnects
 
-### 6. Dosing Reservoir Level Monitoring
+### 7. Dosing Reservoir Level Monitoring
 
 **Decision: Software volume tracking for v1. No hardware float sensors on dosing reservoirs.**
 
@@ -162,7 +300,7 @@ Rationale:
 - PCF8574 is polled over shared I2C bus (address 0x24, requires one spare I2C address)
 - Cost: ~$2 for PCF8574 + ~$25 per float switch
 
-### 7. Hardware Float Switch Safety Cutoffs
+### 8. Hardware Float Switch Safety Cutoffs
 
 **Decision: FLOAT_LOW and FLOAT_HIGH provide hardware-enforced cutoffs, not software-only.**
 
@@ -188,7 +326,7 @@ alerting, but the hardware path acts regardless of software state.
 - 1× MMBT3904 NPN transistor, SOT-23 (~$0.05)
 - 1× 4.7kΩ base resistor, 0805 (already in BOM)
 
-### 8. Nutrient A and B on Separate TMC2209 Channels
+### 9. Nutrient A and B on Separate TMC2209 Channels
 
 **Decision: STEP_NUT_A and STEP_NUT_B each have a dedicated TMC2209 driver.**
 
@@ -217,7 +355,7 @@ never need direction reversal.
 **Future field change:** if combining is ever desired, tie the two coil outputs in parallel
 externally and leave one TMC2209 unpopulated (DNP). No PCB revision required.
 
-### 9. pH Chemistry and Dosing Sequence
+### 10. pH Chemistry and Dosing Sequence
 
 #### Why pH always drifts upward
 
@@ -303,9 +441,14 @@ Never run EC and pH corrections in the same step. Always re-measure after mixing
 recommended for comfortable headroom. **Minimum: LRS-100-24** (24V / 4.2A / 100W) if
 cost is a priority.
 
-Peak 24V load estimate: main pump (~0.75A at 24V) + 3× dosing (0.75A each, only when
-stepping) + ATO valve (~0.3A at 24V) + logic buck input (~0.1A) ≈ 3.5A worst-case
-simultaneous. LRS-100-24 (4.2A) provides 20% headroom; LRS-150-24 (6.5A) provides 85%.
+Peak 24V load estimate: TMC2209 supply current is chopper-averaged, not equal to motor coil
+current. Operating at 80% of rated (1.36A) with ~3Ω NEMA 17 coil resistance:
+1.36² × 3Ω × 2 coils = 11.1W per motor; at ~82% driver efficiency → 11.1W / 0.82 / 24V
+≈ 0.56A from 24V rail per motor. At 90% (1.53A) → 0.71A per motor.
+Main pump (~0.75A) + 3× A200SX dosing (~0.56A each at 80%, worst-case all stepping) + ATO
+(~0.3A) + logic (~0.1A) ≈ 2.8A. Per §10 sequence, nutrients and pH Down never step
+simultaneously; normal worst-case is ~2.0A. LRS-100-24 (4.2A) is adequate;
+LRS-150-24 (6.5A) gives comfortable headroom and is recommended.
 
 **IP67 alternative:** LPV-100-24 (24V / 4.2A / 100W) for humid environments.
 Avoid HDR-60-24 — only 2.5A (insufficient).
@@ -344,7 +487,7 @@ Note: TPS62933 input range is 3.8–30V — 24V is within spec.
 | **3.3V Total** | | ~150mA | ~550mA |
 | **5V Total** | | ~25mA | ~80mA |
 | Main Pump (24V, TBD) | 24V | 300mA | 1.0A |
-| Dosing pump — KAS SF-12V (each) | 24V | 0 (EN disabled) | 750mA |
+| Dosing pump — A200SX ×3 (each, chopper-avg @ 80%) | 24V | 0 (EN disabled) | ~560mA |
 | ATO Solenoid Valve (24V NC) | 24V | 0 (idle) | 300mA |
 | **24V Total** | | ~300mA | ~3.5A |
 
@@ -403,7 +546,7 @@ Note: TPS62933 input range is 3.8–30V — 24V is within spec.
 |----------|----------------|
 | 24V Power | 2-pin pluggable screw terminal (3.5mm) |
 | Main Pump | 2-pin pluggable screw terminal (**5.08mm** — Phoenix MSTB 2.5/2-ST-5.08) |
-| Dosing Pumps (stepper) | 3× JST S6B-PH-K-S (6-pin PH 2.0mm right-angle TH — mates with PHR-6 on KAS SF-12V cable; VCC/GND/A+/A−/B+/B−) |
+| Dosing Pumps (stepper) | 3× A200SX connector — **verify on receipt**; likely JST PH 2.0mm 4-pin or bare pigtail (NEMA 17 standard); use screw terminal breakout or match to actual cable |
 | ATO Solenoid | 2-pin pluggable screw terminal (3.5mm — Phoenix MC 1.5/2-ST-3.5) |
 | pH/EC/RTD Probes | BNC female (panel mount) |
 | I2C Sensors | 4-pin Phoenix Contact 1803280/1803581 |
