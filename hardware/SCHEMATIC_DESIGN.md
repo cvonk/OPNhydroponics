@@ -243,29 +243,28 @@ Why 2200µF?
 - Use 2200µF for safety margin and multiple pump operation
 
 Additional Local Bypass Capacitors:
-- Place 100nF ceramic (0805, X7R, 50V) near each MOSFET (Q1-Q6)
+- Place 100nF ceramic (0805, X7R, 50V) near each MOSFET (Q1, Q2)
+- TMC2209 drivers (U5–U7) each require 100µF + 100nF local bypass on VM — see §7.2
 - Connects between 24V drain and GND
 - Provides local energy storage for switching transients
 - Reduces high-frequency noise on 24V rail
 
 ```
 24V Distribution Layout:
-┌──────────────────────────────────────────────────────────┐
-│ 24V PSU                                                  │
-│   │                                                      │
-│   ├─[2200µF]─[100nF]─┬─[100nF]─┬─► Q1 (Main Pump)      │
-│                       │         │                        │
-│                       ├─[100nF]─┼─► Q2 (pH Up)          │
-│                       │         │                        │
-│                       ├─[100nF]─┼─► Q3 (pH Down)        │
-│                       │         │                        │
-│                       ├─[100nF]─┼─► Q4 (Nutrient A)     │
-│                       │         │                        │
-│                       ├─[100nF]─┼─► Q5 (Nutrient B)     │
-│                       │         │                        │
-│                       └─[100nF]─┴─► Q6 (ATO Valve)      │
-│                                                          │
-└──────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│ 24V PSU                                                           │
+│   │                                                               │
+│   ├─[2200µF]─[100nF]──┬──[100nF]──► Q1 (Main Pump, MOSFET)      │
+│                        │                                          │
+│                        ├──[100nF]──► Q2 (ATO Valve, MOSFET)      │
+│                        │                                          │
+│                        ├──[100µF+100nF]──► U5 VM (pH Down TMC2209) │
+│                        │                                          │
+│                        ├──[100µF+100nF]──► U6 VM (Nut A  TMC2209) │
+│                        │                                          │
+│                        └──[100µF+100nF]──► U7 VM (Nut B  TMC2209) │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
 ```
 IMPORTANT Power Supply Selection:
 - Use PSU with built-in soft-start (Mean Well LRS-150-24 ✅)
@@ -373,8 +372,10 @@ LAST RESORT - Optocoupler Isolation:
 | 5V buck output | 100nF 16V ceramic | 1 | Generic X7R 0805 | HF filtering |
 | 24V PSU input | 2200µF **50V** electrolytic | 1 | Panasonic EEU-FR1E222 | Motor startup buffering |
 | 24V PSU input | 100nF 50V ceramic | 1 | Generic X7R 0805 | HF filtering |
-| Per MOSFET Q1-Q6 | 100nF 50V ceramic | 6 | Generic X7R 0805 | Local bypassing |
-| **Total** | | **10** | | **~$3-4 total** |
+| Per MOSFET Q1, Q2 | 100nF 50V ceramic | 2 | Generic X7R 0805 | Local bypassing |
+| Per TMC2209 U5–U7 | 100µF 35V electrolytic | 3 | Panasonic EEU-FR1V101 | Stepper VM bulk |
+| Per TMC2209 U5–U7 | 100nF 50V ceramic | 3 | Generic X7R 0805 | Stepper VM HF bypass |
+| **Total** | | **15** | | **~$4-5 total** |
 
 ---
 
@@ -1701,55 +1702,6 @@ Note: No voltage divider resistors needed — simplified layout vs 5V HC-SR04.
 
 ## 6. Float Switch Interface
 
-### 6.1 Part Selection — Horizontal vs Vertical
-
-Two mounting styles are suitable. **Horizontal side-mount is recommended** for OPNhydro:
-
-```
-Horizontal (side-mount):               Vertical (top/bottom-mount):
-
-   ══════════ ← HIGH hole ══════          ┌──stem──┐   ← lid/top mount
-   │          ┌───┤>────┐            │    │        │
-   │    water │   float │            │    │  float │ hangs down
-   │          └─────────┘            │    └────────┘
-   ══════════ ← LOW hole ═══          ══════════════
-```
-
-| | Horizontal (LH25) ✅ | Vertical (M8000) |
-|---|---|---|
-| **Level precision** | Set by hole position (±5mm) | Depends on float travel distance |
-| **Mounting** | Side wall, 1/2" NPT | Lid/top or side, 1/8" NPT |
-| **NO/NC selection** | Flip float orientation | Fixed NC (M8000) |
-| **Tank holes** | 2 × 1/2" side holes | 2 × 1/8" holes (top or side) |
-| **Chemical resistance** | PP or PVDF | PP |
-| **IP rating** | IP68 | Not rated |
-| **Typical cost** | ~$25 each | ~$15 each |
-| **Best for** | Open-top or side-access reservoir | Sealed lid, top-mount only |
-
-**Key advantage of horizontal:** The sensing level is fixed by where you drill the hole — no float travel calculation, no ambiguity. Reef keepers have used these in similar chemical environments for decades.
-
----
-
-### 6.2 Recommended: Flowline LH25-1101 (Horizontal, PP)
-
-```
-Contact:      SPST dry reed, selectable NO/NC by float orientation
-Rating:       30VA @ 120V AC/DC — far exceeds 3.3V GPIO pullup current
-Material:     Polypropylene (PP) body and float
-Mount:        1/2" NPT side-wall bulkhead
-Accuracy:     ±5mm in water
-Repeatability:±2mm
-Temperature:  -40°C to 105°C
-Pressure:     100 psi max
-IP rating:    IP68 (NEMA 6)
-Wire:         2' (61cm), 2-conductor, 22 AWG
-Float orient: Hinge UP = normally open; Hinge DOWN = normally closed
-```
-
-**Both switches are mounted NC (hinge pointing DOWN).** Wiring to the PCB differs
-between the two so that both GPIO signals are active-HIGH on their cutoff condition
-(see section 6.3 for circuit details and section 6.5 for full mounting guide):
-
 ```
 FLOAT_LOW  (GPIO0) — hole at LOW water mark:
   Float arm UP   (water ≥ LOW mark):  NC CLOSED → switch pulls to GND → GPIO0 LOW  (water OK)
@@ -1762,10 +1714,6 @@ FLOAT_HIGH  (GPIO1) — hole at HIGH water mark:
   PCB wiring: switch wire → 3.3V terminal
 ```
 
-> **Alternative:** Madison M8000 (1/8" NPT vertical NC, PP, 30VA) if side-wall mounting
-> is not possible (e.g., opaque rigid reservoir with no accessible side). Same circuit applies.
-
----
 
 ### 6.3 Circuit
 
@@ -2022,6 +1970,19 @@ FLOAT_HIGH (GPIO1):
 
 All pumps and the ATO valve use the same 24V rail and identical driver circuits.
 
+### Main Pump
+
+**Installation Notes:**
+1. Pump must be fully submerged in water before power-on (prevents dry-run damage)
+2. Mount pump vertically or horizontally, avoid inverted position
+3. Use 1/2" ID vinyl or silicone tubing on barbed fittings; secure with hose clamps
+4. Add inline strainer/filter to prevent debris clogging impeller
+5. Test PWM control at low duty cycles to find minimum stable speed
+6. Allow 10-15 second startup delay in software for motor initialization
+
+
+
+
 ### 7.1 24V Main Pump Driver
 
 ```
@@ -2083,70 +2044,8 @@ D1: SS34 (3A Schottky flyback diode, SMC)
 - Handles main pump inductive kickback
 ```
 
-**Main Pump Specifications:**
 
-Recommended 24V DC submersible pumps for hydroponic circulation: (**Selection TBD — 24V equivalents required**)
-
-| Parameter | Specification | Notes |
-|-----------|---------------|-------|
-| **Voltage** | **24V DC** | Matches system power rail |
-| **Current** | 0.5-0.75A typical at 24V | Within IRLR2905 capacity (42A) |
-| **Power** | 12-18W maximum | Current × voltage |
-| **Flow Rate** | 600-1000 L/H | 158-264 GPH |
-| **Head Height** | 2-3 meters | 6.5-10 feet max lift |
-| **Type** | Submersible | Water-cooled, silent operation |
-| **Material** | Food-safe plastic or SS | Aquarium/hydroponics rated |
-| **Duty Cycle** | Continuous | 24/7 operation capable |
-| **Connection** | Wire leads or barrel jack | See connector specs below |
-
-**Recommended Pump Models:**
-
-**Option 1: 24V Brushless Submersible Pump** ⚠️ **TBD — 24V equivalent required**
-
-**Electrical Specifications:**
-- Voltage: **24V DC** (AUBIG DC40-1250 was 12V and is no longer suitable)
-- Current: ~0.6-0.75A @ 24V (equivalent power ~14-18W)
-- Power: 14.4W maximum
-- Motor: Brushless DC (BLDC) with magnetic drive coupling
-
-**Hydraulic Performance:**
-- Flow Rate: 500-510 L/H (130-135 GPH) at zero head
-- Maximum Head: 5.0m (16.4 ft)
-- Inlet: 13.8mm (0.54") diameter
-- Outlet: 10.0mm (0.39") diameter or 1/4" / 1/2" NPT threads (DC40E model)
-
-**Physical & Environmental:**
-- Dimensions: Compact design, ~90×60×70mm
-- Material: PA66 + Glass fiber (chemical resistant)
-- Waterproof Rating: IP68 (fully submersible)
-- Noise Level: <40 dB (ultra-quiet operation)
-- Lifespan: 30,000-50,000 hours (brushless motor)
-- Operating Temp: Fresh or salt water compatible
-
-**Advanced Features:**
-- ✅ **PWM Speed Control**: Supports PWM signal input for variable flow rate
-- ✅ **0-5V Analog Control**: Alternative speed control via analog voltage
-- ✅ **Solar Compatible**: Can run directly from 12V battery/solar systems
-- ✅ **Magnetic Drive**: No shaft seal = leak-proof, maintenance-free
-- ⚠️ **Voltage Safety**: 24V DC — low-voltage shock risk is minimal but use appropriate wire ratings
-- ✅ **Soft Start**: Brushless controller reduces inrush current
-
-**Cost & Availability:**
-- Price: $12-18 USD
-- Sources: Amazon, eBay, AliExpress
-- Part Numbers: DC40-1250 (wire leads), DC40-1250 (NPT threads)
-
-**Hydroponic System Suitability:**
-
-| System Type | Reservoir | Flow Rate Needed | AUBIG DC40-1250 | Rating |
-|-------------|-----------|------------------|-----------------|--------|
-| NFT (Nutrient Film) | 20-40 gal | 400-600 L/H | 500-510 L/H | ✅ **Excellent** |
-| DWC (Deep Water) | 20-30 gal | 600-800 L/H | 500-510 L/H | ✅ **Good** |
-| Ebb & Flow | 20-30 gal | 600-800 L/H | 500-510 L/H | ✅ **Good** |
-| Drip System | Any | 400-600 L/H | 500-510 L/H | ✅ **Excellent** |
-| Large DWC | 50+ gal | 1000+ L/H | 500-510 L/H | ⚠️ **Marginal** |
-
-**PWM Speed Control Implementation:**
+**AUBIG DC40-1250 PWM Speed Control Implementation:**
 
 The main pump supports PWM speed control via the 24V power input. The ESP32-S3 can generate PWM on GPIO10 to modulate the MOSFET gate, providing variable pump speed:
 
@@ -2172,81 +2071,20 @@ Benefits of PWM Control:
 - Extend pump lifespan with reduced wear
 ```
 
-**Power Supply Requirements:**
-
-⚠️ **CRITICAL**: User reviews emphasize stable, adequate power supply is essential for reliability.
 
 ```
-24V Power Supply Specification:
-- Voltage: 12V DC ±5% regulation (11.4V - 12.6V)
-- Current capacity: 2A minimum per pump (1.2A × 1.5 safety factor)
-- Ripple voltage: <100mV p-p (brushless motor sensitive to noise)
-- Startup inrush: ~1.8-2.0A for 50-100ms (motor startup)
-- Wire gauge: 18 AWG minimum for <1% voltage drop
-
 Recommended Power Supplies:
 - For main pump only: 12V 3A regulated DC
 - For full system (pump + dosing + ATO): 12V 5-10A regulated DC
 - Quality: Mean Well, TDK-Lambda, or equivalent (low ripple essential)
 ```
 
-**Installation Notes:**
-1. Pump must be fully submerged in water before power-on (prevents dry-run damage)
-2. Mount pump vertically or horizontally, avoid inverted position
-3. Use 1/2" ID vinyl or silicone tubing on barbed fittings; secure with hose clamps
-4. Add inline strainer/filter to prevent debris clogging impeller
-5. Test PWM control at low duty cycles to find minimum stable speed
-6. Allow 10-15 second startup delay in software for motor initialization
 
-**Pros:**
-- ✅ True 12V DC input (works with MOSFET driver)
-- ✅ PWM speed control capable (variable flow rate)
-- ✅ Brushless motor (long life, low maintenance)
-- ✅ Ultra-quiet operation (<40dB)
-- ✅ Magnetic drive (leak-proof, no seal wear)
-- ✅ Solar/battery compatible
-- ✅ Very affordable ($12-18)
-- ✅ Proven in hydroponics and aquariums
-
-**Cons:**
-- ⚠️ Sensitive to power quality (needs stable 24V, low ripple)
-- ⚠️ Lower flow than AC pumps (130 GPH vs 400 GPH)
-- ⚠️ Quality control varies (check reviews before purchase)
-- ⚠️ Must run submerged (cannot self-prime)
-- ⚠️ Not suitable for large systems (>40 gallon reservoirs)
-
----
-
-**Alternative Options:**
-
-**Option 2: Generic 800L/H 12V DC Submersible (Higher flow)**
-- Flow: 800 L/H (211 GPH) @ 12V 1.0-1.2A
-- Head: 2.5m maximum
-- Cost: $15-25
-- Note: Usually NOT PWM compatible (brush motor)
-- Best for: Larger DWC systems needing higher circulation
-
-**Option 3: Seaflo/Shurflo 12V Water Pump (Commercial grade)**
-- Flow: 480-720 L/H @ 12V 1.0-1.5A
-- Features: Self-priming, pressure switch, RV/marine rated
-- Fittings: 3/8" or 1/2" NPT threaded
-- Cost: $25-40
-- Note: Not PWM compatible (diaphragm pump)
-- Best for: Systems requiring self-priming or dry-run protection
-
-**Flow Rate Sizing Guide:**
-
-| System Type | Recommended Flow | AUBIG DC40-1250 | Reservoir Turnover |
-|-------------|------------------|-----------------|-------------------|
-| NFT (Nutrient Film) | 400-600 L/H | ✅ 500-510 L/H | 2-3× per hour |
-| Drip System | 400-600 L/H | ✅ 500-510 L/H | 1-2× per hour |
-| Ebb & Flow (Flood/Drain) | 600-800 L/H | ⚠️ 500-510 L/H | 2× per hour (marginal) |
-| DWC Small (20-30 gal) | 600-800 L/H | ⚠️ 500-510 L/H | 2-2.5× per hour |
-| DWC Large (50+ gal) | 1000+ L/H | ❌ 500-510 L/H | Too low, use Option 2 |
-
-**Note:** AUBIG DC40-1250 is optimized for NFT and drip systems. For large DWC or ebb & flow systems requiring >600 L/H, consider Option 2 (800L/H generic pump) or run two AUBIG pumps in parallel.
 
 **Pump Power Connector:**
+
+According to the NEMA 17 convention — JST PH 2.0mm 4-pin on motor body; cable free end terminates in JST XH 2.5mm 4-pin (commonly mislabelled "XH2.54"); XH series is 2.5mm pitch, not 2.54mm DuPont). PCB footprint: B4B-XH-A; verify on receipt [ankoproducts.com](https://ankoproducts.com/products/a200sx)
+
 
 ```
 Phoenix Contact MSTB 2.5/2-ST-5.08 (2-position screw terminal)
@@ -2275,13 +2113,12 @@ Pump Side Connection Options:
 
 ### 7.2 24V Dosing Pump Drivers — TMC2209 Stepper (×3)
 
-> **Design decision — Stepper over DC motor, and Nutrient A/B on separate channels:**
-> DC peristaltic pumps require periodic flow-rate calibration; stepper-driven pumps dose by step count × pump displacement, which is stable between calibrations. TMC2209 StealthChop2 provides near-silent operation.
-Nutrient A and B use separate STEP lines (GPIO15, GPIO19) but share DIR (GPIO18) — they always dose in the same direction. 
-Cost delta vs combined channel: ~$3 (one TMC2209). See ARCHITECTURE.md §2 and §8.
 
-Three TMC2209 stepper drivers (QFN-28) each drive one Kamoer KAS SF-12V bipolar stepper peristaltic pump. All drivers operate in **UART mode** via GPIO21/22 (ESP32-C6 UART1).
+Three TMC2209 stepper drivers (QFN-28) each drive one ANKO A200SX bipolar stepper peristaltic pump. All drivers operate in **UART mode** via GPIO21/22 (ESP32-C6 UART1).
 StealthChop2 is active by default at the low step rates used for dosing.
+
+TMC2209 thermal at 1.7A: copper pour + thermal vias on PCB (standard practice) keeps Tj ~73°C at 30°C ambient; very low dosing duty cycle (seconds/day) keeps this transient.
+
 
 **TMC2209 UART Configuration:**
 - PDN_UART: 100Ω series resistor to shared UART bus. GPIO22 TX → bus via 1kΩ; GPIO21 RX → bus direct
@@ -2289,8 +2126,8 @@ StealthChop2 is active by default at the low step rates used for dosing.
 - EN: tied to GND — drivers permanently enabled; standstill current eliminated via `IHOLD=0`
 - DIR: hardwired to 3.3V — peristaltic pumps never need reversal
 - SPREAD: GND → StealthChop2 mode (silent)
-- RSENSE: 220mΩ — sets full-scale current reference with VREF
-- VREF: resistor divider from 3.3V → ~0.58V → full-scale ~1.32A; IRUN register scales to 0.75A
+- RSENSE: 120mΩ (per TMC2209 datasheet Ch. 8 recommendation for 1.7A motor) — see RSENSE section below
+- VREF: resistor divider from 3.3V → 2.161V → hard 90% current cap (1.53A); IRUN register sets operating point
 - STDBY (pin 20): HIGH = standby (internal regulator off, all UART registers reset to defaults);
   LOW = normal operation. **Tied to GND** — OPNhydro runs continuously; IHOLD=0 handles
   standstill power saving without the register-reset complication of STDBY.
@@ -2423,7 +2260,7 @@ The sense voltage is also used by StealthChop2 (current-mode PWM feedback) and S
 | Register | Value | Purpose |
 |----------|-------|---------|
 | `IHOLD` | 0 | Zero standstill current (EN tied to GND — this is essential) |
-| `IRUN` | 18 | Run current ≈ 0.75A (18/31 × full-scale with RSENSE=220mΩ, VREF=0.58V) |
+| `IRUN` | 24 | Run current ≈ 70% (CS=24 → 1.19A; increase to 27 for ~79% if stalling occurs — see CS table above) |
 | `IHOLDDELAY` | 6 | Steps between IRUN→IHOLD transition after last STEP pulse |
 | `TPWMTHRS` | 0 | StealthChop2 active at all speeds |
 | `SENDDELAY` | ≥2 | **Required for multi-driver bus.** Reply delay before TMC2209 begins its UART response. Default (0) can cause a non-addressed chip to detect a transmission error when a different chip responds. Set to 2 or higher on all drivers. See note below. |
@@ -2531,56 +2368,42 @@ management, and the burst-complete callback integrates cleanly with an ESPHome c
 component or FreeRTOS task. Use `ESP32TimerInterrupt` as a fallback if the RMT
 peripheral is needed for other functions (e.g. WS2812B LED strip).
 
-**Dosing Pump — Kamoer KAS SF-12V:**
+**Dosing Pump — ANKO A200SX:**
 
 | Parameter | Specification |
 |-----------|---------------|
-| Voltage | 24V VM (TMC2209 regulated) |
-| Current | 0.75A |
-| Flow rate | ~11.5–71.5 mL/min (3-rotor, speed-dependent) |
-| Tubing | 3mm ID × 5mm OD, silicone or BPT |
-| Motor | Bipolar stepper (4-wire) |
-| Motor cable connector | JST PHR-6 (6-pin PH female, 2.0mm pitch) |
-| Drive board control connector | JST B4B-XH-A (4-pin XH male, 2.5mm) — on bundled drive board only |
-| Source | [Kamoer KAS SF-12V datasheet](https://www.kamoer.com/us/previewPdf/index.html?type=1&docId=8583&xxsToken=55a775c80a10a02b4f4b7ec1185bf381&id=9005) |
+| Motor body connector | JST PH 2.0mm 4-pin (female, on pump body) |
+| Cable free-end connector | JST XH 2.5mm 4-pin (female) — PCB side |
+| Source | [ankoproducts.com/products/a200sx](https://ankoproducts.com/products/a200sx) |
 
-Order without the bundled drive board — TMC2209 replaces it.
-
-**Connector overview:**
-The pump motor cable terminates in a **JST PHR-6** (6-pin PH 2.0mm female housing). The
-bundled drive board (not used) has a **JST B4B-XH-A** (4-pin XH 2.5mm, for STEP/DIR/EN/GND).
-([Kamoer KAS SF-12V datasheet](https://www.kamoer.com/us/previewPdf/index.html?type=1&docId=8583&xxsToken=55a775c80a10a02b4f4b7ec1185bf381&id=9005))
-
-The 6-pin PHR-6 carries motor power and coil wires together (pinout from Kamoer datasheet):
+The A200SX motor cable carries coil wires only (4 pins). VCC/GND are not in this connector — the TMC2209 H-bridge drives the coils directly.
 
 ```
-PHR-6 Pin Assignment (verify against datasheet before assembly):
-┌─────┬──────────────────────────────────────────────────────┐
+JST XH 2.5mm 4-pin Assignment (verify against A200SX datasheet on receipt):
+┌─────┬────────────────┬─────────────────────────────────────┐
 │ Pin │ Signal         │ PCB connection                      │
 ├─────┼────────────────┼─────────────────────────────────────┤
-│  1  │ VCC (24V VM)   │ 24V rail (motor power)              │
-│  2  │ GND            │ GND                                 │
-│  3  │ Coil A+  (OA1) │ TMC2209 OA1                         │
-│  4  │ Coil A−  (OA2) │ TMC2209 OA2                         │
-│  5  │ Coil B+  (OB1) │ TMC2209 OB1                         │
-│  6  │ Coil B−  (OB2) │ TMC2209 OB2                         │
+│  1  │ Coil A+  (OA1) │ TMC2209 OA1                         │
+│  2  │ Coil A−  (OA2) │ TMC2209 OA2                         │
+│  3  │ Coil B+  (OB1) │ TMC2209 OB1                         │
+│  4  │ Coil B−  (OB2) │ TMC2209 OB2                         │
 └─────┴────────────────┴─────────────────────────────────────┘
-⚠ Pin order and VCC/GND position must be verified from the Kamoer KAS SF-12V datasheet
-  before PCB layout. Coil swap (A↔B or polarity) only affects rotation direction; the
-  TMC2209 handles both. VCC/GND mis-wiring to OA/OB would damage the driver.
+⚠ Verify pin order from A200SX datasheet before PCB layout. Coil swap (A↔B or polarity)
+  only affects rotation direction; the TMC2209 handles both.
 ```
 
 **Dosing Pump Connector (×3, PCB side):**
 
 ```
-JST S6B-PH-K-S (6-position PH male header, 2.0mm pitch, right-angle TH, PCB mount) ×3
-- Mates with: JST PHR-6 housing on pump motor cable
-- Pitch: 2.0mm
-- 6 pins: VCC, GND, coil A+, coil A−, coil B+, coil B−
+JST B4B-XH-A (4-position XH male header, 2.5mm pitch, right-angle TH, PCB mount) ×3
+- Mates with: JST XH 2.5mm 4-pin female housing on pump cable free end
+- Pitch: 2.5mm
+- 4 pins: coil A+, coil A−, coil B+, coil B−  (no VCC/GND)
 - Silkscreen label: "pH DN", "NUT A", "NUT B"
-- Right-angle orientation: cable exits horizontally toward board edge — preferred for
-  enclosure builds where cables route sideways through cable glands
-- Alternative: B6B-PH-K-S (vertical TH) if cables must exit upward
+- Right-angle orientation: cable exits horizontally toward board edge
+- Alternative: B4B-XH-AM (vertical TH) if cables must exit upward
+- Verify exact part on receipt — ARCHITECTURE.md notes connector mislabelled "XH 2.54mm"
+  in 3D printer community; XH series is 2.5mm pitch
 ```
 
 ### 7.3 ATO Solenoid Valve Driver
@@ -2638,44 +2461,6 @@ Q8: AO3400A (Logic-level N-MOSFET, SOT-23)
 D1: 1N5819 (1A Schottky flyback diode, SOD-123)
 - Sufficient for solenoid valve inductive spike suppression
 
-**ATO Solenoid Valve Specifications:**
-
-| Parameter | Specification | Notes |
-|-----------|---------------|-------|
-| **Type** | Normally Closed (NC) | Fail-safe: valve closes on power loss |
-| **Voltage** | 24V DC | Matches system power rail |
-| **Current** | 300-500mA typical | Within AO3400A capacity (5.8A) |
-| **Power** | 4-6W | Coil power consumption |
-| **Pressure** | 0-0.8 MPa (0-116 PSI) | Typical municipal water pressure |
-| **Port Size** | 1/4" to 1/2" | NPT thread or hose barb |
-| **Material** | Brass body, EPDM/NBR seal | Food-safe, corrosion resistant |
-| **Orifice** | 2-10mm | Determines flow rate |
-| **Response** | 50-100ms typical | Fast open/close |
-
-**Recommended Solenoid Valve Models:**
-
-**✅ Recommended: DIGITEN DC 24V 1/4" NC Quick-Connect** *(or equivalent 24V NC valve)*
-- Model: DIGITEN K170403
-- Port: 1/4" quick-connect (fits standard 1/4" OD tubing directly — no NPT adapter needed)
-- Type: Direct-acting, zero-pressure rated (works on gravity-fed top-off tanks)
-- Current: ~200mA @ 24V DC (4.8W)
-- Material: Food-grade plastic body, NBR seal
-- Pressure: 0–0.5 MPa (0–72 PSI)
-- Cost: ~$10
-- Best for: RO/clean water ATO on gravity or mains supply
-
-> **Why not the 2V025-08 (ANGGREK/AirTAC)?** The 2V025 is a pneumatic valve (designed for air/gas) with an anodized aluminum body. It functions for clean water short-term but is not rated for continuous liquid service. Brass or food-grade plastic bodies are more appropriate for water ATO.
-
-**Alternative: U.S. Solid 1/4" NC Nylon 24V** (~$15–20)
-- Direct-acting, NPT threads, water-specific design
-- Lower power than U.S. Solid brass model (~350mA)
-- Best for: Installations needing NPT fittings and known-brand sourcing
-
-**High-end: U.S. Solid 1/4" NC Brass/Viton** (~$20–30)
-- Model: USS2-00051
-- Brass body, Viton seal, IP65, direct-acting, 0–101 PSI
-- Current: ~1.17A (14W) — **update power budget if selected**
-- Best for: Commercial/long-life installations; note high coil current
 
 **ATO Valve Connector:**
 
@@ -2704,6 +2489,11 @@ Valve Side Connection:
 - ✅ Recommend inline manual shutoff valve for maintenance
 - ✅ Consider water leak sensor near reservoir for additional protection
 
+**Both switches are mounted NC (hinge pointing DOWN).** Wiring to the PCB differs
+between the two so that both GPIO signals are active-HIGH on their cutoff condition
+
+
+
 **Valve Installation:**
 1. Install valve inline on water supply line (before reservoir)
 2. Arrow on valve body indicates flow direction
@@ -2718,12 +2508,12 @@ Valve Side Connection:
 | Load | Current | MOSFET | Package | RDS(on) @ 4.5V | Margin | Rationale |
 |------|---------|--------|---------|----------------|--------|-----------|
 | **Main Pump (AUBIG DC40-1250)** | 1.2A | **IRLR2905** | DPAK | 40mΩ | 35× | PWM capable, SMD |
-| **Dosing Pumps (4×)** | 300mA | **AO3400A** | SOT-23 | 33mΩ | 19× | Low cost, efficient |
 | **ATO Solenoid** | 500mA | **AO3400A** | SOT-23 | 33mΩ | 11× | Low cost, efficient |
+
+Dosing pumps (A200SX) are driven by TMC2209 internal H-bridges — no discrete MOSFET required.
 
 **Power Dissipation Analysis:**
 - IRLR2905 (Main pump): 1.2A² × 0.04Ω = **58mW** (DPAK handles easily)
-- AO3400A (Dosing): 300mA² × 0.033Ω = **3mW** (negligible for SOT-23)
 - AO3400A (ATO): 500mA² × 0.033Ω = **8mW** (very low for SOT-23)
 
 **Benefits:**
@@ -2738,9 +2528,8 @@ Valve Side Connection:
 
 **Part Numbers:**
 - Q1 (Main Pump): **IRLR2905** or IRLR2905ZPBF (Infineon, DPAK/TO-252)
-- Q2-Q5 (Dosing Pumps): **AO3400A** (Alpha & Omega, SOT-23) - Primary choice
-- Q6 (ATO Solenoid): **AO3400A** (Alpha & Omega, SOT-23) - Primary choice
-- Alternative for Q2-Q6: BSS214N / BSS214NH6327XTSA1 (Infineon, 5A, SOT-23)
+- Q2 (ATO Solenoid): **AO3400A** (Alpha & Omega, SOT-23) - Primary choice
+- Alternative for Q2: BSS214N / BSS214NH6327XTSA1 (Infineon, 5A, SOT-23)
 
 ### 7.5 Pump and Valve BOM Summary
 
@@ -2754,14 +2543,14 @@ Valve Side Connection:
 | Component | Qty | Type | Specifications | Cost (ea) | Total | Notes |
 |-----------|-----|------|----------------|-----------|-------|-------|
 | **Main Circulation Pump** | 1 | Brushless | AUBIG DC40-1250, 510L/H, 12V 1.2A | $12-18 | $15 | ✅ Selected for price + PWM |
-| **pH Up Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ Selected for reliability |
-| **pH Down Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ BPT tubing, premium build |
-| **Nutrient A Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ BPT tubing, premium build |
-| **Nutrient B Dosing Pump** | 1 | Peristaltic | Kamoer NKP-DC-B08, 47-90mL/min | $15-25 | $20 | ✅ BPT tubing, premium build |
+| **pH Down Dosing Pump** | 1 | Stepper peristaltic | ANKO A200SX, 24V, 1.7A, 1/16″ bore, 0.001–54 mL/min | ~$90 | $90 | ✅ Selected; Norprene tubing |
+| **Nutrient A Dosing Pump** | 1 | Stepper peristaltic | ANKO A200SX, 24V, 1.7A, 1/8″ bore, 0.003–219 mL/min | ~$90 | $90 | ✅ Selected; Norprene tubing |
+| **Nutrient B Dosing Pump** | 1 | Stepper peristaltic | ANKO A200SX, 24V, 1.7A, 1/8″ bore, 0.003–219 mL/min | ~$90 | $90 | ✅ Selected; Norprene tubing |
 | **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403-24V, 1/4" QC, 24V ~200mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
-| **Main Pump Connector** | 1 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $0.50 | 5.08mm pitch — incompatible with dosing |
-| **Dosing + ATO Connectors** | 5 | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | $0.40 | $2 | 3.5mm pitch — incompatible with main pump |
-| | | | | **Subtotal:** | **$110** | ✅ Recommended configuration |
+| **Main Pump Connector** | 1 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $0.50 | 5.08mm pitch — main pump only |
+| **ATO Connector** | 1 | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | $0.40 | $0.40 | 3.5mm pitch |
+| **Dosing Pump Connectors** | 3 | JST header | JST B4B-XH-A (4-pin XH 2.5mm, right-angle TH) | $0.20 | $0.60 | Mates with A200SX cable free end |
+| | | | | **Subtotal:** | **~$296** | ✅ Recommended configuration |
 
 **Why these components were selected:**
 
@@ -2773,71 +2562,41 @@ Valve Side Connection:
 - ✅ **Suitable for:** NFT, drip, and small-medium DWC systems (20-30 gal)
 - ⚠️ **Not for:** Large DWC (50+ gal) - use higher-flow alternative below
 
-**Kamoer NKP-DC-B08 (Dosing Pumps):**
-- ✅ **Better reliability:** Proven Kamoer brand reputation in aquarium/hydro industry
-- ✅ **BPT tubing:** Imported, longer lifespan than silicone (3-5 years vs 1-2 years)
-- ✅ **Self-priming + dry-run capable:** Prevents damage if reservoir runs low
-- ✅ **Reversible flow:** Change polarity for backflow/cleaning cycles
-- ✅ **Quieter operation:** 3-rotor design, ultra-low pulse
-- ✅ **Easy maintenance:** Snap-fit pump head for quick tube replacement
-- ✅ **Worth the premium:** Only $40-60 more total (×4) vs generic, significant reliability gain
-- **Best for:** Reliable dosing without spending $120-200 on stepper pumps
+**ANKO A200SX (Dosing Pumps):**
+- ✅ **Stepper-driven accuracy:** Dose volume = step count × displacement constant — no periodic flow-rate calibration required
+- ✅ **Norprene® tubing:** Chemically resistant to phosphoric acid (pH Down) and nutrient solutions; single tube material for all channels
+- ✅ **No-tool tube change:** Performance Class head; bore selection per channel (1/16″ pH Down, 1/8″ nutrients)
+- ✅ **Self-sealing when stopped:** Rollers pinch tube; no drip-back without motor reversal (DIR hardwired)
+- ✅ **Native 24V:** No voltage compatibility issue; NEMA 17 stepper is direct TMC2209 drop-in
+- ✅ **StealthChop2 (TMC2209):** Near-silent operation at the low step rates used for dosing
 
-**Budget Alternative Configuration (Generic Pumps):**
+**Large System Alternative (main pump only):**
 
-| Component | Qty | Type | Specifications | Cost (ea) | Total | Notes |
-|-----------|-----|------|----------------|-----------|-------|-------|
-| **Main Circulation Pump** | 1 | Brushless | AUBIG DC40-1250, 510L/H, 12V 1.2A | $12-18 | $15 | ✅ PWM capable, proven reliable |
-| **Dosing Pumps (×4)** | 4 | Peristaltic | Generic 50-100mL/min, 12V 300mA | $8-15 | $40 | Budget option, silicone tubing |
-| **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403-24V, 1/4" QC, 24V ~200mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
-| **Main Pump Connector** | 1 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $0.50 | 5.08mm pitch — incompatible with dosing |
-| **Dosing + ATO Connectors** | 5 | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | $0.40 | $2 | 3.5mm pitch — incompatible with main pump |
-| | | | | **Subtotal:** | **$70** | Minimum viable, lower reliability |
+For systems >50 gal DWC/Ebb & Flow requiring higher flow, the main circulation pump can be substituted. Dosing pump selection (A200SX × 3) is unchanged.
 
-**Note:** Generic pumps save $40-60 but may require more frequent tubing replacement and have higher failure rates.
-
-**Professional/Commercial Configuration (Kamoer KDS Stepper Pumps):**
-
-| Component | Qty | Type | Specifications | Cost (ea) | Total | Notes |
-|-----------|-----|------|----------------|-----------|-------|-------|
-| **Main Circulation Pump** | 1 | Brushless | AUBIG DC40-1250, 510L/H, 12V 1.2A | $12-18 | $15 | ✅ PWM capable, proven reliable |
-| **Dosing Pumps (×4)** | 4 | Peristaltic | Kamoer KDS-FE-2-S17B | $30-50 | $160 | Stepper motor, ±1% accuracy |
-| **ATO Solenoid Valve** | 1 | NC Solenoid | U.S. Solid 1/4" NC Brass/Viton, 24V ~0.6A | $20-30 | $25 | IP65, direct-acting — note: 14W coil, update power budget |
-| **Main Pump Connector** | 1 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $0.50 | 5.08mm pitch — incompatible with dosing |
-| **Dosing + ATO Connectors** | 5 | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | $0.40 | $2 | 3.5mm pitch — incompatible with main pump |
-| **24V Power Supply** | 1 | Regulated | Mean Well LRS-150-24 (50W, 4.2A) | $15-20 | $18 | Low ripple for brushless motor |
-| | | | | **Subtotal:** | **$221** | Professional/commercial grade |
-
-**For Large Systems (50+ gal DWC/Ebb & Flow):**
-
-| Component | Qty | Type | Specifications | Cost (ea) | Total | Notes |
-|-----------|-----|------|----------------|-----------|-------|-------|
-| **Main Circulation Pump** | 1 | Submersible | Generic 800L/H, 12V 1.5A | $15-25 | $20 | Higher flow, no PWM |
-| OR: **Dual AUBIG Pumps** | 2 | Brushless | AUBIG DC40-1250 (parallel) | $12-18 | $30 | 1000L/H total, redundant |
-| **Dosing Pumps (×4)** | 4 | Peristaltic | Generic 50-100mL/min | $8-15 | $48 | Budget peristaltic |
-| **ATO Solenoid Valve** | 1 | NC Solenoid | DIGITEN K170403-24V, 1/4" QC, 24V ~200mA, direct-acting | $8-12 | $10 | ✅ Food-grade, zero-pressure rated |
-| **Main Pump Connector** | 1 | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | $0.50 | $0.50 | 5.08mm pitch — incompatible with dosing |
-| **Dosing + ATO Connectors** | 5 | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | $0.40 | $2 | 3.5mm pitch — incompatible with main pump |
-| | | | | **Subtotal:** | **$83-113** | Budget, higher flow rate |
+| Component | Qty | Specifications | Notes |
+|-----------|-----|----------------|-------|
+| **Main Circulation Pump** | 1 | Generic submersible 800L/H, 12V 1.5A | Higher flow, no PWM |
+| OR: **Dual AUBIG Pumps** | 2 | AUBIG DC40-1250 (parallel) | 1000L/H total, PWM capable |
 
 **Connector Summary:**
 
 | Location | Connector | Part Number | Pitch | Pins | Purpose |
 |----------|-----------|-------------|-------|------|---------|
 | J? (Main Pump) | Screw Terminal | Phoenix MSTB 2.5/2-ST-5.08 | **5.08mm** | 2 | 24V switched + GND |
-| J? (pH Up) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 24V switched + GND |
-| J? (pH Down) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 24V switched + GND |
-| J? (Nutrient A) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 24V switched + GND |
-| J? (Nutrient B) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 24V switched + GND |
 | J? (ATO Valve) | Screw Terminal | Phoenix MC 1.5/2-ST-3.5 | 3.5mm | 2 | 24V switched + GND |
+| J? (pH Down) | JST header | JST B4B-XH-A (right-angle TH) | 2.5mm | 4 | Stepper coil A+/A−/B+/B− |
+| J? (Nutrient A) | JST header | JST B4B-XH-A (right-angle TH) | 2.5mm | 4 | Stepper coil A+/A−/B+/B− |
+| J? (Nutrient B) | JST header | JST B4B-XH-A (right-angle TH) | 2.5mm | 4 | Stepper coil A+/A−/B+/B− |
 
-> **Misconnection prevention:** The 5.08mm main pump plug physically cannot be inserted
-> into a 3.5mm dosing pump header, and vice versa. No silkscreen label required for safety,
-> though labels are still recommended for ease of installation.
+> **Misconnection prevention:** The 5.08mm main pump plug physically cannot be inserted into a
+> 3.5mm ATO header. The JST XH dosing connectors are keyed and cannot be plugged into screw
+> terminal positions. Silkscreen labels are still recommended for ease of installation.
 
 **Wiring Specifications:**
 
-- **Wire gauge:** 22-18 AWG for dosing pumps and valve (300-500mA)
+- **Wire gauge:** 22 AWG for ATO valve (500mA)
+- **Wire gauge:** 22 AWG for stepper coil wires A200SX → TMC2209 (1.7A peak, short PCB-to-pump runs; PCB trace carries this current between B4B-XH-A and TMC2209)
 - **Wire gauge:** 18 AWG for main pump AUBIG DC40-1250 (1.2A, <1% drop @ 3ft)
 - **Wire type:** Stranded copper, 300V rated minimum
 - **Insulation:** PVC or silicone (silicone preferred for flexibility)
@@ -2850,12 +2609,11 @@ Valve Side Connection:
 | Load | Current | Power | Duty Cycle | Avg Power | Notes |
 |------|---------|-------|------------|-----------|-------|
 | Main Pump (AUBIG DC40-1250) | 1.2A | 14.4W | 100% (continuous) | 14.4W | Brushless, PWM capable |
-| pH Up Pump (Peristaltic) | 0.3A | 3.6W | <1% (1-2 min/day) | 0.04W | Intermittent |
-| pH Down Pump (Peristaltic) | 0.3A | 3.6W | <1% (1-2 min/day) | 0.04W | Intermittent |
-| Nutrient A Pump (Peristaltic) | 0.3A | 3.6W | <1% (1-2 min/day) | 0.04W | Intermittent |
-| Nutrient B Pump (Peristaltic) | 0.3A | 3.6W | <1% (1-2 min/day) | 0.04W | Intermittent |
+| pH Down Pump (A200SX stepper, 80% IRUN) | ~0.55A | ~13W | <1% (seconds/day) | ~0.13W | IHOLD=0; 0A at standstill |
+| Nutrient A Pump (A200SX stepper, 80% IRUN) | ~0.55A | ~13W | <1% (seconds/day) | ~0.13W | IHOLD=0; 0A at standstill |
+| Nutrient B Pump (A200SX stepper, 80% IRUN) | ~0.55A | ~13W | <1% (seconds/day) | ~0.13W | IHOLD=0; 0A at standstill |
 | ATO Valve (NC Solenoid) | 0.4A | 4.8W | <10% (periodic refill) | 0.48W | Normally closed |
-| **Peak Total** | **2.8A** | **33.6W** | If all run simultaneously | - | Rare condition |
+| **Peak Total** | **3.85A** | **57W** | Main pump + all 3 steppers + ATO simultaneously | - | Very rare |
 | **Typical Avg** | **~1.3A** | **~15W** | Normal operation | - | Main pump only |
 
 **24V Power Supply Recommendation:**
@@ -2885,6 +2643,16 @@ Valve Side Connection:
 5. Consider UPS/battery backup for main pump to prevent plant stress during power outages
 
 ---
+
+## 0. Power Supply Selection
+
+```
+Recommended Power Supplies:
+- For main pump only: 12V 3A regulated DC
+- For full system (pump + dosing + ATO): 12V 5-10A regulated DC
+- Quality: Mean Well, TDK-Lambda, or equivalent (low ripple essential)
+```
+
 
 ## 8. Status LED
 
@@ -2930,11 +2698,11 @@ All values below use **ΔT = 10°C** (conservative; IPC-2221 permits 20°C for m
 |-----|---------|--------------------|--------------------|-------|
 | 24V input (PSU→TVS→RPP) | 6.5 A | **158 mil (4.0 mm)** | **79 mil (2.0 mm)** | Use 2oz or copper pour |
 | 24V main pump | ~1.0 A | 12 mil (0.30 mm) | 6 mil (0.15 mm) | Brushless pump |
-| 24V dosing bus | 2.25 A total (3×0.75 A) | 37 mil (0.94 mm) | 19 mil (0.48 mm) | 3 steppers |
+| 24V dosing bus | 5.1 A total (3×1.7 A) | 115 mil (2.9 mm) | 58 mil (1.5 mm) | 3 steppers, worst-case peak |
 | 24V ATO valve | 0.3 A | 4 mil (0.10 mm) | 2 mil (0.05 mm) | Use 8 mil min for fab |
 | 5V rail (post-buck) | 3.0 A | 55 mil (1.40 mm) | 28 mil (0.71 mm) | TPS62933 output |
 | 3.3V rail (post-LDO) | 1.0 A | 12 mil (0.30 mm) | 6 mil (0.15 mm) | AMS1117 output |
-| Stepper coil (per phase) | 0.75 A | 8 mil (0.20 mm) | 6 mil (0.15 mm) | TMC2209 OA1/OA2/OB1/OB2 |
+| Stepper coil (per phase) | 1.7 A | 23 mil (0.58 mm) | 12 mil (0.30 mm) | TMC2209 OA1/OA2/OB1/OB2; use 8 mil fab min for short runs |
 
 #### Practical Minimums
 
