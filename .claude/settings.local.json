@@ -18,7 +18,12 @@
       "WebFetch(domain:pdf.medicalexpo.com)",
       "WebFetch(domain:kamoer.com)",
       "WebFetch(domain:m.media-amazon.com)",
-      "WebFetch(domain:www.amazon.com)"
+      "WebFetch(domain:www.amazon.com)",
+      "WebFetch(domain:www.atlas-scientific.com)",
+      "WebFetch(domain:atlas-scientific.com)",
+      "WebFetch(domain:www.manualslib.com)",
+      "WebFetch(domain:mans.io)",
+      "WebFetch(domain:forum.arduino.cc)"
     ]
   }
 }

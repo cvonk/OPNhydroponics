@@ -49,6 +49,20 @@ ESP32-C6 based NFT hydroponics controller with full sensor suite, dosing pump co
 
 Designing for a 50 leafy greens / herbs system.
 
+A 24V rail is used because it enables a broader selection of main circulation pumps and ATO solenoid valves, which are voltage-sensitive (unlike current-regulated stepper drivers).
+
+The controller operates independently when Home Assistant is unavailable:
+- Local pH control: Once daily at 10:00 AM (avoids temperature-induced pH fluctuations)
+- Doses pH Down only — pH creep is always upward; no pH Up pump fitted (see §10)
+- Local EC control: Doses nutrients when EC drops below threshold (every 10 min)
+- Safety interlocks: Float switch protection always active
+- ATO: Requires HA for user confirmation (manual override via physical button possible)
+- Data logging: Buffers readings until HA reconnects
+
+
+---
+
+
 ### 1. Reservoir Selection
 
 **✅Selected: Black 200 L reservoir (minimum).** Larger is better.
@@ -97,17 +111,17 @@ Requirements:
 - 24V brushless motor for longlivity
 - 2.5m head
 
-Models considered
+#### Parts Considered
 
-Feature        | ✅SHYSKY/AUBIG DC40F-2470<sup>[1](https://www.amazon.com/SHYSKY-DC40F-2460-Brushless-Waterproof-Submersible/dp/B0C5721V85)</sup> |  Topsflo TL-B10<sup>[2](https://www.topsflo.com/brushless-dc-pump/tl-b10-brushless-dc-pump.html)</sup> |
----------------|----------------------------|-----------------|
+Feature        | ✅[SHYSKY/AUBIG DC40F-2470](https://www.amazon.com/SHYSKY-DC40F-2460-Brushless-Waterproof-Submersible/dp/B0C5721V85) | [Topsflo TL-B10](https://www.topsflo.com/brushless-dc-pump/tl-b10-brushless-dc-pump.html) |
+---------------|--------------|---------------------|
 Voltage        | 24V DC       | 24V                 |
 Current        | 1.2A         | 1.3A                |
 Max Head       | 6m           | 8m                  |
 Max Flow       | 960 L/hr     | 720 L/hr            |
 Lifespan       | 30,000 hr    | 20,000 hr           |
 Materials      | Weak acid/alkaline | FDA approved  |
-Noise          | <40dB @1m    | <40dB @1m           |
+Noise          | <40dB        | <40dB               |
 Self-Priming   | No           | No                  |
 Variable speed | PWM          | PWM                 |
 Cost           | \$26         | \$30 on AliExpress  |
@@ -120,27 +134,28 @@ Cost           | \$26         | \$30 on AliExpress  |
 
 ### 3. Dosing Pump Selection
 
-A 24V rail is used because it enables a broader selection of main circulation pumps and ATO solenoid valves, which are voltage-sensitive (unlike current-regulated stepper drivers).
-
 Use a peristaltic pumps for their characteristics
 - Self-priming capability
 - Chemical resistance (no wetted metal parts)
 - No contamination between fluids
 - Self-sealing when stopped (rollers pinch tube; no drip-back)
 
-#### Type of peristaltic pump
+#### 3.1. Technologies Considered
 
-Feature    | ✅Stepper Pump                  | DC Pump
+Feature    | Stepper Pump                    | DC Pump
 -----------|---------------------------------|--------------------------------
 Accuracy   | High (Calibration stays stable) | ❌Low (Drifts as motor/tube ages)
 Min dose   | ~0.05 ml                        | ~1.0 ml
-Control    | Higher (needs Driver)           | Lower (needs MOSFET)
+Control    | High (with Driver)              | Low (with MOSFET)
 Motor life | ~5,000 hours                    | 1,000 hrs max with brushed motor
-Cost       | \$90 - \$100                    | \$10 - \$30
+EMI noise  | ❌High                          | Moderate
+Cost       | \$90 - \$100                    | \$10 - \$120
 
-**✅Selected: Stepper pump** for acurate dosing and reliability. Risk of a DC pump "sticking" or drifting and crashing your pH is considered too high. 
+A stepper motor is nice for its acurate dosing and reliability, but may create a PCB layout headache due to its EMI. On the other hand with a DC pump, we risk the pump "sticking" or drifting and crashing your pH is too high.   As there is no clear winner, we'll consider both types of motors.
 
-#### Per-Event Dose Estimates
+Before we can explore specific dosing pumps, we need to know the required dosing.
+
+#### 3.2. Per-Event Dose Estimates
 
 Assumptions:
 - 2-part nutrients at 5–7 mL/L (standard hydroponic concentrate);
@@ -160,34 +175,45 @@ The table below gives per-event dose estimates for a nominal **200 L reservoir**
 | pH Down | Initial fill | 3–5 mL | 6–12 | 18–60 mL | 60 s | 3–5 mL/min |
 | pH Down | Maintenance | 1–3 mL | 1–3 | 1–9 mL | 60 s | 1–3 mL/min |
 
-#### Dosing Pump Model Selection
+#### 3.3. Parts Considered
 
-Peristaltic stepper dosers are typically rated for a 50% duty cycle. The pump runs for 50% of the step window, leaving the remaining 50% for mixing and settling before the next measurement. This doubles the required instantaneous flow rate relative to continuous pumping over the full window.
+Peristaltic stepper dosers are often rated for a 50% duty cycle. This doubles the required instantaneous flow rate relative to continuous pumping over the full window.
 
-| Channel | Flow rate (continuous) | Flow rate (50% DC)  | 
-|---------|------------------------|---------------------|
-| Nutrients A/B | ~50 mL/min | ~100 mL/min |
-| pH Down | ~5 mL/min | ~10 mL/min |
+Requirements
+- 24V DC motor
+- I2C or UART control
+- Continuous flow rate of ~5ml/min for pH down.
+- Continuous flow rate of ~50 mL/min for Nutrients.
 
-Two models were considered as shown in the table below.
+Note that the **EZO-PMP is not a stepper-based**. The dependence on flow-rate calibration and the "Dose over Time" logic confirm it is a regulated DC motor using tachometer/time-based feedback rather than discrete steps. It achieves ±1% accuracy the same way a Kamoer NKP-DC-B08 would — via calibrated timed runs — not via step counting. 
 
-Feature               | ✅ANKO A200SX | Kamoer KAS-SE |
-----------------------|-------------|-----------------|
-Current               | 1.7A                          | 1.2A
-Motor                 | 1.8°/step                     | 1.8°/step
-Motor life            | 5,000+ hours                  | ❌unknown
-Duty cycle            | 50% max (300 s on-time limit) | ❌unknown
-Acid resistant tubing | Norprene                      | Bioprene
-Tubing life           | 200-1,000 hr of runtime       | ❌unknown
-Tubing Ph-down        | 1/16" (max 54 mL/min)         | B08 (max 42 mL/min)
-Tubing Nutriants      | 1/8" (max 219 mL/min)         | ❌B10 (84 mL/min)
-Cost                  | \$90 at ANKO Products         | Cost: \$95 at AliExpress |
+Feature       | [ANKO A200SX](https://ankoproducts.com/products/a200sx) | [Kamoer KAS-SE](https://www.kamoer.cn/us/product/detail.html?id=9005) | [Atlas EZO-PMP](https://atlas-scientific.com/peristaltic/ezo-pmp/)
+--------------|------------------------|-----------------------|--------------
+Voltage       | 24V DC                 | 24V DC                | 12 – 24V DC
+Technology    | Stepper motor          | Stepper motor         | DC Motor
+Rated Current | 1.7A (RMS)             | 0.4 – 0.8A            | 0.1 – 0.25A
+Duty Cycle    | 50% (Industrial)       | Intermittent          | 100% (Continuous)
+Acid Tubing   | Norprene               | Bioprene              | Bioprene / Tygon
+Max Flow Rate | 450 mL/min             | ❌maybe 71.5 mL/min   | 105 mL/min
+Motor Life    | 5,000+ hr              | 1,000 – 2,000 hr      | ❌~1,000 hr
+Tubing Life   | ~1,000 hr              | ~1,000 hr             | 500 – 1,000 hr
+Driver        | Needs ext. driver      | Needs ext. driver     | Build-in
+Control       | I2C to ext. driver     | I2C to ext. driver    | Native I2C
+EMI noise     | ❌High: 1.7A switching | Moderate 0.8A switching | Low
+Price         | \$90 on ANKO Products  | \$95 on AliExpress    | \$120 on Atlas
 
-**✅Selected: ANKO A200SX** despite its higher current, because it has clear specifications. The specs for Kamoer KAS-SE <sup>[1](https://www.kamoer.com/us/product/doc.html?id=9005),[2](https://robu.in/wp-content/uploads/2021/12/kamoer-catalog-1.pdf)</sup> from manufacturer and vendors specify inconsistent flow rates with Bioprene tubing.
+Again, no clear winner.  But if we're willing to accept some limitations on how we use the ANKO stepper pump, we can have the best of both worlds.  Acceptable EMI noise and current, and the accurateness and longlivity.
 
+**✅Selected: ANKO A200SX** but with the promise to implement Sequential Logic (turning off motors to read sensors) and limit the motor current as far as feasible (1A ?).  
+- *Overbuilt for Precision:* The NEMA 17 stepper (ANKO) has massive "holding torque." In dosing, this prevents the rollers from "back-creeping" when the pump is off, ensuring the pH Down doesn't slowly leak into the tank.
+- *Thermal Headroom:* By running at 60% of its rated current, active cooling isn't neede for the stepper driver.
+- *The "Silent Read" Advantage:* Since we'll not read pH/EC while pumping, we eliminate the biggest risk of the ANKO (chopper noise). The code simply disables the motor drivers (ENN = HIGH) before requesting data from the ADM3260 islands.
 
----
+Running the motor at 1A RMS (~60% of its 1.7A rating) will significantly reduce the electromagnetic field strength and current ripples that contribute to EMI. However, because torque in stepper motors is directly proportional to current, you should expect roughly **40-45% less torque** than the motor’s peak capability.
 
+Recommendations:
+- **Test under Load:** Verify that 1A provides enough torque to move the fluid through your specific tubing at your required pressure.
+- **Adjust Microstepping:** If the motor vibrates or stalls at 1A, increasing microstepping (e.g., to 1/8 or 1/16) can sometimes help smooth out the motion and prevent resonance-related stalls at lower current levels. 
 
 ### 4. Dosing Pump Driver Selection
 
@@ -196,76 +222,96 @@ Requirements:
 - 3.3V I/O voltage
 - UART interface, ideally shared between drivers
 
-The parts listed below were considered.
+#### 4.1. Parts Considered
 
-Feature         | ✅Trinamic TMC2209 | Trinamic TMC2225 |
+Feature         | ✅[Trinamic TMC2209](https://www.analog.com/en/products/tmc2209.html) | [Trinamic TMC2225](https://www.analog.com/media/en/technical-documentation/data-sheets/TMC2225_datasheet_rev1.14.pdf)
 ----------------|---------------------|------------------|
-Pump voltage    | 24V                 | 24V              |
+Pump voltage    | 24V supported       | 24V supported    |
 I/O voltage     | 3.3V supported      | 3.3V supported   |
-Current         | 2.0A RMS max        | ❌1.4A RMS max  |
-UART            | Yes (shared)        | Yes              |
+Current         | 2.0A RMS max        | ❌1.4A RMS max   |
+UART            | Yes (shared)        | Yes (shared)     |
 Near-silent op  | StealthChop2        | StealthChop2     |
 Fault detection | StallGuard4         | unknown          |
 
 **✅Selected: Trinamic TMC2209** because the TMC2225 can't drive the 1.7A current needed for the ANKO A200SX pump.
 
-#### Current setting and operating margin
+#### 4.2. Limit EMI Noise and Current
 
-To reduce motor and driver temperature and extend service life, choose a target operating range of **70–90%** of the pumps rated **I<sub>RMS</sub>** . Very low thermal duty cycle (dosing pulses are seconds long) means thermal risk is minimal, but the margin also guards against stall on aged or swollen tubing.
+To reduce EMI noise and current, choose a **target operating range of 60–70%** of the pumps rated **I<sub>RMS</sub>** .
 
 This current should be limited in hardware and firmware:
-1. Use the V<sub>REF</sub> input of the TMC2209 to set a hard limit to 90% of the 1.7 A<sub>RMS</sub> motor current.
+1. Use the V<sub>REF</sub> input of the TMC2209 to set a hard limit to 90% of the 1.7 A<sub>RMS</sub> motor current. This is likely still overkill, but will limit the current further in firmware. 
 2. Set `IHOLD_IRUN` register using firmware to further lower the current to a practical level Configure `IHOLD=0` (zero standstill current) via UART, so sense resistors and motor carry no current between dosing events.
-
 
 ---
 
 
 ### 5. Main Reservoir Level System
 
-Uses existing ultrasonic sensor for level detection with a normally-closed solenoid valve:
-- **Detection**: Ultrasonic sensor monitors water level continuously
-- **Valve type**: 24V NC (normally closed) solenoid - fails safe (closed)
-- **Safety**: Float switch provides hardware backup cutoff
-- **User confirmation**: System requests approval via Home Assistant before filling
+Tight water level control is less about volume and more about chemical stability.
+- When **water evaporates**, it leaves behind minerals, salts, and nutrients. This can lead to osmotic shock, nutrient burn in plants. An Auto Top-Off (ATO) keeps the ratio of water-to-solids constant.
+- Smaller volumes of water are more susceptible to rapid **pH swings**. Maintaining a consistent reservoir volume provides a larger "thermal and chemical mass," which acts as a buffer against rapid fluctuations caused by plant uptake or waste breakdown.
+- Most pumps are not designed to **run dry**.
+
+Requirements:
+- **User confirmation**: System requests approval from user before filling
 - **Timeout**: Maximum fill time prevents overflow if sensor fails
+- **Safety**: Float switches provides hardware backup cutoff
+- **Valve type**: 24V NC (normally closed) solenoid - fails safe (closed)
+- **Hysteresis** in driving the OTA valve. If you triggered a refill the second the water dropped 1mm, your pump would "chatter" (rapidly flip on/off).
+
+Purpose:
+- A **continuous depth sensor** measure the liquid height to track consumption and guide the automatic top-off (ATO) feature
+- Independent sensors for **high and low alarms** provide a safety feature in case the ATO system fails. The high alarm disables the auto top-off feature.  The low alarm disables the main pump so it can't run dry.
 
 
-### 5.1 Automatic Top-Off (ATO) Selection
-
-Requirements
-- 24V to match system power rail
-- Normally Closed (NC), so it is fail-safe: valve closes on power loss
-- 0-0.8 MPa (0-116 PSI), the typical municipal water pressure
-- Brass body, EPDM/NBR seal, so it is food-safe and corrosion resistant
-
-The models listed below were considered
-
-Feature | ✅DIGITEN DC 24V 1/4" NC<sup>[1](https://www.amazon.com/DIGITEN-Solenoid-Reverse-Osmosis-System/dp/B00X6RAHMU)</sup> | U.S. Solid JFSV00068<sup>[2](https://ussolid.com/products/u-s-solid-electric-solenoid-valve-1-4-24v-dc-solenoid-valve-stainless-steel-body-normally-closed-viton-seal-html?_pos=6&_fid=d5a36750a&_ss=c)</sup> | U.S. Solid JFSV00052<sup>[3](https://ussolid.com/products/u-s-solid-electric-solenoid-valve-1-4-24v-dc-solenoid-valve-brass-body-normally-closed-viton-seal-html?_pos=3&_fid=fa20ea39a&_ss=c)</sup> | U.S. Solid USS-MSV00027<sup>[4](https://ussolid.com/products/u-s-solid-motorized-ball-valve-1-4-stainless-steel-electrical-ball-valve-with-full-port-9-24-v-ac-dc-2-wire-auto-return-html)</sup>
-----------------|-------------------------|-------------------|---------------------|---
-Voltage         | 24V DC                  | 24V DC            | 24V DC              | 9-24V AC/DC
-Body            | Plastic                 | Stainless steel   | Brass               | Stainless steel
-Default state   | Normally Closed         | Normally Closed   | Normally Closed     | Normally Closed
-Port            | 1/4" Quick Connect      | 1/4" NPT thread   | 1/4" NPT thread     | 1/4" NPT thread
-Current         | 0.2A                    | 0.6A              | 0.6A                | 0.2A (when moving)
-Max pressure    | 0.8 MPa (116 PSI)       | 0.7 MPa (101 PSI) | 0.7 MPa (101 PSI)   | 1.0 MPa (145 PSI)
-Design          | Solonoid orifice        | Solonoid orifice  | Solonoid orifice    | Ball valve
-Response time   | <1s                     | <1s               | <1s                 | 3-5s
-Drinking safe   | Yes                     | Yes               | ❌No                | Yes
-Cost            | \$10                    | \$30              | \$17                | $25
-
-**✅Selected: DIGITEN DC 24V 1/4" NC** for its price.
+#### 5.1 Continuous Depth Sensor Selection
 
 
-### 5.2 Float Switch Selection
+This sensors provide a real-time measurement of the liquid height, which is ideal for tracking consumption and guiding the auto top-off feature.
+
+##### 5.1.1. Technologies Considered
+
+Feature  | LiDAR | Capacitive | Ultrasonic | Hydrostatic
+---------|-------|------------|------------|------------
+Contact | Non-contact | ❌Contact | Non-contact | ❌Contact
+Precision | Very High (mm) | High (±0.2%) | Moderate (±0.25") | High (±0.1%)
+Foam/Vapor | Unaffected | Unaffected | Poor | Unaffected
+Blind Spot | 10 cm | 0 cm | ❌20 cm | 0 cm
+Best For | Clean liquids | Viscous/Sticky fluids | General water/Chemicals | Deep tanks/Turbulence
+Example Product | Benewake TF-Luna | uFire Capacitive | JSN-SR04T | DFRobot Gravity
+Interface | I2C/UART | I2C | GPIO | ❌Analog
+Approx. Price | \$25 – \$40 | \$35 – \$50 | \$10 – \$15 | ❌\$60 – \$80
+
+**✅Selected: LiDAR** since it stays dry, so no maintenance-free. The 10 cm head room is acceptable since it only needs to measure the level up to the high alarm float sensor. Capacitance and hydro static were rejected since mineral buildup eventually affects these sensors.  Ultrasonic is rejected, since it needs excessive head room.
+
+##### 5.1.2. Parts Considered
+
+Feature         | ST VL53L1X<sup>[1](https://www.adafruit.com/product/3967)</sup> | Benewake TF-Luna<sup>[2](https://www.robotshop.com/products/benewake-tf-luna-8m-lidar-distance-sensor)</sup> | Benewake TFmini-S<sup>[3](https://www.robotshop.com/products/benewake-tfmini-s-micro-lidar-module-i2c-12m)</sup>
+----------------|------------------|------------------|------------------
+Range           | 0.04-4 m         | 0.1-8 m          | 0.1-12 m
+Interface       | I2C              | I2C/UART         | I2C/UART
+Supply Voltage  | 2.6V – 5.5V      | 3.7V – 5.2V      | 4.5V – 6.0V
+I/O Logic Level | 3.3V / 5V        | 3.3V             | 3.3V
+Form Factor     | ❌Breakout board | Compact module   | Ruggedized module
+Price           | $14.95           | $22.26           | ❌$48.10
+
+**✅Selected: Benewake TF-Luna** because if its housing and price.  Rejected the ST VL53L1X since it is an unhoused breakout board.  Rejected the Benewake TFmini-S because if its price.
+
+
+#### 5.2 High/Low Alarm Sensor Selection
+
 
 Goals:
 - A low level float switch keeps keep main pump from running dry.
 - A high level float switches provides a hardware guard against both overfilling the reservoir.
 
 Requirements
-- Normally closed switch.
+- The switches should disable the driving of the MOSFETs that control the ATO feature and main pump.
+- A normally closed switch is less likely to fail.
 - Horizontal side-mount, so the top of the reservoir can be opened for inspection. Also the sensing level is fixed by where you drill the hole — no float travel calculation, no ambiguity. 
+
+##### 5.2.1. Parts Considered
 
 Feature     | ✅Flowline LH25-1101
 ------------|----------------------
@@ -279,20 +325,37 @@ Wire        | 2' (61cm), 2-conductor, 22 AWG
 **✅Selected: Flowline LH25-1101 (Horizontal, PP)**. No alternatives were considered.
 
 
+### 5.3 Automatic Top-Off (ATO) Selection
+
+
+Requirements
+- 24V to match system power rail
+- Normally Closed (NC), so it is fail-safe: valve closes on power loss
+- 0-0.8 MPa (0-116 PSI), the typical municipal water pressure
+- Brass body, EPDM/NBR seal, so it is food-safe and corrosion resistant
+
+#### 5.1.1 Parts Considered
+
+Feature | ✅[DIGITEN DC 24V 1/4" NC](https://www.amazon.com/DIGITEN-Solenoid-Reverse-Osmosis-System/dp/B00X6RAHMU) | [US Solid JFSV00068](https://ussolid.com/products/u-s-solid-electric-solenoid-valve-1-4-24v-dc-solenoid-valve-stainless-steel-body-normally-closed-viton-seal-html?_pos=6&_fid=d5a36750a&_ss=c) | [US Solid MSV00027](https://ussolid.com/products/u-s-solid-motorized-ball-valve-1-4-stainless-steel-electrical-ball-valve-with-full-port-9-24-v-ac-dc-2-wire-auto-return-html)
+----------------|-------------------------|-------------------|--------------------
+Voltage         | 24V DC                  | 24V DC            | 9-24V AC/DC
+Body            | Plastic                 | Stainless steel   | Stainless steel
+Default state   | Normally Closed         | Normally Closed   | Normally Closed
+Port            | 1/4" Quick Connect      | 1/4" NPT thread   | 1/4" NPT thread
+Current         | 0.2A                    | 0.6A              | 0.2A (when moving)
+Max pressure    | 0.8 MPa (116 PSI)       | 0.7 MPa (101 PSI) | 1.0 MPa (145 PSI)
+Design          | Solonoid orifice        | Solonoid orifice  | Ball valve
+Response time   | <1s                     | <1s               | 3-5s
+Drinking safe   | Yes                     | Yes               | Yes
+Cost            | \$10                    | \$30              | $25
+
+**✅Selected: DIGITEN DC 24V 1/4" NC** for its price.
+
+
 ---
 
 
-### 6. Standalone Operation
-
-The controller operates independently when Home Assistant is unavailable:
-- Local pH control: Once daily at 10:00 AM (avoids temperature-induced pH fluctuations)
-- Doses pH Down only — pH creep is always upward; no pH Up pump fitted (see §10)
-- Local EC control: Doses nutrients when EC drops below threshold (every 10 min)
-- Safety interlocks: Float switch protection always active
-- ATO: Requires HA for user confirmation (manual override via physical button possible)
-- Data logging: Buffers readings until HA reconnects
-
-### 7. Dosing Reservoir Level Monitoring
+### 6. Dosing Reservoir Level Monitoring
 
 **Decision: Software volume tracking for v1. No hardware float sensors on dosing reservoirs.**
 
@@ -317,110 +380,124 @@ Rationale:
 - PCF8574 is polled over shared I2C bus (address 0x24, requires one spare I2C address)
 - Cost: ~$2 for PCF8574 + ~$25 per float switch
 
-### 8. Hardware Float Switch Safety Cutoffs
 
-**Decision: FLOAT_LOW and FLOAT_HIGH provide hardware-enforced cutoffs, not software-only.**
 
-To ensure fail-safe operation independent of MCU firmware, each float switch drives a small NPN transistor that directly pulls the respective MOSFET gate to GND when its cutoff condition is met. The MCU can still read the float state via GPIO for monitoring and alerting, but the hardware path acts regardless of software state.
 
-**FLOAT_LOW (GPIO0) → Main Pump (Q1) hardware cutoff:**
-- GPIO0 HIGH = water below LOW mark (switch open, pull-up active) = pump must stop
-- GPIO0 drives NPN transistor base; NPN collector tied to Q1 gate
-- When GPIO0 HIGH: NPN saturates → Q1 gate pulled to ≈GND → pump off (hardware)
-- When GPIO0 LOW: NPN off → Q1 gate controlled by GPIO10 normally
 
-**FLOAT_HIGH (GPIO1) → ATO Valve (Q8) hardware cutoff:**
-- FLOAT_HIGH is wired with pull-DOWN + switch-to-3.3V (reversed from FLOAT_LOW)
-  so that GPIO1 HIGH = water at/above HIGH mark = consistent active-HIGH logic
-- GPIO2 drives NPN transistor base; NPN collector tied to Q8 gate
-- When GPIO1 HIGH: NPN saturates → Q8 gate pulled to ≈GND → ATO valve closes (hardware)
-- When GPIO1 LOW: NPN off → Q8 gate controlled by GPIO7 normally
 
-**Additional components required (per channel):**
-- 1× MMBT3904 NPN transistor, SOT-23 (~$0.05)
-- 1× 4.7kΩ base resistor, 0805 (already in BOM)
-
-### 0. Probes
-
-Highly reliable and continuous monitoring is essential for maintaining optimal pH (5.5–6.5) and EC (0.8–2.5 mS/cm) levels.
-
-Requirements:
-- Provide high accuracy and resist electrical noise from pumps.
-- Digital probes are highly recommended for the ESP32 to ensure stable readings without the need for custom analog filtering or voltage dividers.
-- Designed for "7/24" monitoring to ensure the probes don't degrade under constant use.
-
-**✅Selected: Atlas Scientific Probes**
-
-1. **Lab Grade pH Probe (ENV-40-pH)**
-   - Communicates via I2C or UART, making it plug-and-play with the ESP32.
-   - According to Atlas Scientific, it provides lab-grade accuracy (+/- 0.002pH) and includes built-in temperature compensation and 1-3 point calibration.
-   - Needs an extra EZO-pH circuit board. This board supports 3.3V logic.
-   - Cost: \$85 plus \$46 for the circuit at Atlas Scientific.
-
-2. **K 1.0 Conductivity Probe (EC-K1.0)**
-   - According to Atlas Scientific, the probe is designed for the nutrient ranges typical in hydroponics (0.8–2.5 mS/cm) with a lifespan of roughly 2–2.5 years under continuous immersion.
-   - Needs an extra EZO-EC circuit mezzanine board. This board supports 3.3V logic.
-   - Cost \$140 for the probe, and \$68 for the circuit at Atlas Scientific.
-
-3. **Temperature Probe (PT-1000)**
-   - Also supports I2C/UART for direct digital data transfer to the ESP32.
-   - Range: 200 ̊C to 850 ̊C +/- (0.15 + (0.002*t)) 
-   - According to Atlas Scientific, the probe is designed for -200°C to 850°C with a lifespan of roughly 15 years under continuous immersion.
-   - Needs an extra EZO-RTD circuit mezzanine board. This board supports 3.3V logic.
-   - Cost \$24 for the probe, and \%36 for the circuit at Atlas Scientific.
-
-**Alternative considered — DFRobot Gravity Sensors**
-
-1. **PH Sensor Kit**
-   - Needs a external ADC or a high-quality voltage regulator, as the ESP32’s native ADC is often non-linear.
-   - Comes with a signal conversion board. This board supports 3.3V logic.
-   - Cost \$65 at DFRobot plus price of an external ADC.
-
-2. **Lab Grade Analog Conductivity Sensor Kit (K=1)**
-   - Needs a external ADC or a high-quality voltage regulator.
-   - Comes with a signal conversion board. This board supports 3.3V logic.
-   - Cost \$70 at DFRobot plus price of an external ADC.
-
-*Not selected because*: While DFRobot Gravity is significantly more affordable, they seem better suited for smaller hobbyist projects or prototypes where probes are not submerged 24/7. It is engineerd for a different level of "continuous" use according to user reports.
-
-**Alternative considered — BlueLab Probes**
-
-1. **pH Probe (PROBPH)**
-   - ±0.1pH
-   - Requires regular cleaning/calibration
-   - Needs a external ADC or a high-quality voltage regulator.
-   - Cost \$99
-
-2. **Pro Controller Conductivity Probe (PROBPCEC)**
-   - range approx. 0 - 10k µS/cm
-   - Requires regular cleaning/calibration
-   - Needs a external ADC or a high-quality voltage regulator.
-   - Cost \$72
-
-*Not selected because*: While Bluelab states an average lifespan of 18 months for their pH probes. Many users report having to replace them more frequently in 24/7 submerged environments. 
 
 
 ---
 
 
-### 0. Probe Isolation Strategy
+### 7. Probes
 
-Requirement: 
-- Prevent probe interference and ground loops (especially between pH and EC).
+Highly reliable and continuous monitoring is essential for maintaining optimal pH (5.5–6.5) and EC (0.8–2.5 mS/cm) levels. pH and EC readings drift significantly as water temperature changes.
 
-**Selected: EZO-Style I2C Circuits**
-- Each probe has dedicated I2C interface circuit
-- Galvanically isolated power per probe
-- All probes can read simultaneously
-- Cost: ~$60-150 depending on source (Atlas vs clones)
+Why this is critical:
+- pH Drift: pH readings change by about 0.03 pH per 1°C deviation from the 25°C calibration point.
+- EC Drift: Conductivity is even more sensitive, changing by roughly 2% per 1°C. Without this link, a reservoir warming up by 5°C would report a 10% error in nutrient concentration.
 
-**Alternative considered — Time-Division Multiplexing**
-- Single non-isolated ADC (ADS1115)
-- MOSFET switches to power probes sequentially
-- Only one probe powered at a time
-- Cost: ~$15 for all probe interfaces
+To link your EZO-RTD to your pH and EC circuits, you must use a "read-then-write" loop. Atlas EZO circuits do not "talk" to each other directly on the I2C bus; your microcontroller must act as the bridge by reading the temperature and then sending it to the other sensors using `T,n` commands or `RT,n` on newer circuits.
 
-*Not selected because*: Lower accuracy, more complicated software, not worth the savings at medium scale.
+Requirements:
+- Suited continuous immersion in a mineral-heavy nutrient solution (high salts/calcium).
+- Provide high accuracy and resist electrical noise from pumps.
+- No need for custom analog filtering or voltage dividers.
+
+#### 7.1. Parts Considered
+
+##### 7.1.1. pH Probes
+
+Feature     | Atlas Scientific ENV-40-pH (gen3) | DFRobot pH Sensor Kit (v2) | ✅BlueLab PROBPH
+------------|-------------------------------|--------------------|------------------------
+Class       | Laboratory grade                | Budget-friendly    | Industry grade
+Interface   | I2C/UART                        | ❌Analog           | I2C/UART
+I/O voltage | 3.3 - 5V                        | 3.3 - 5.5V         | 3.3 - 5V
+Range       | 0 – 14 pH                       | 0 – 14 pH          | 0 – 14 pH
+Accuracy    | ±0.002 pH (ultra-high)          | ±0.1 pH (standard) | ±0.1 pH (standard)
+Lifespan    | ~1-1.5 yr (double junction)     | ❌>0.5 years       | ~1.5 yr (double junction)
+Maintenance | ❌Frequent cleaning/calibration | unknown            | set-and-forget
+Immersion   | Indefinite                      | ❌Limited          | Indefinite
+Price       | \$85 + \$46 for EZO-pH          | \$30 + ADC         | \$99 + \$46 for EZO-pH
+
+A double junction, adds an extra physical barrier that prevents nutrient salts and heavy minerals from "poisoning" the internal reference silver wire. This makes it far superior for 24/7 immersion in "dirty" or high-EC water.
+
+**✅Selected: BlueLab PROBPH** because no glass bulb like the Atlas, and doesn't require frequent cleaning and re-calibration. The DFRobot is engineerd for a different level of "continuous" use according to user report and needs a external ADC, as the ESP32’s native ADC is often non-linear. Note that while Bluelab states an average lifespan of 18 months for their pH probes. Many users report having to replace them more frequently in 24/7 submerged environments. 
+
+##### 7.1.2. EC Probes
+
+The nutrient range typical in hydroponics is 0.8 – 2.5 mS/cm.
+
+Feature     | Atlas Scientific EC-K1.0  | DFRobot Gravity (K=1) | ✅BlueLab PROBPCEC
+------------|---------------------------|---------------------|------------------------------
+Class       | Laboratory grade          | Budget-friendly     | Industry grade
+Interface   | I2C/UART                  | ❌Analog            | I2C/UART
+I/O voltage | 3.3 - 5V                  | 3.3 - 5.5V          | 3.3 - 5V
+Range       | 0.07 – 500,000+ µS/cm     | 1 – 15,000 µS/cm    | 0 – 10,000 µS/cm
+Accuracy    | ±2% of reading            | ±5% F.S.            | ±100 µS/cm at 2,770 µS/cm
+Lifespan    | ~10 yr                    | >0.5 yr             | High (commercial)
+Maintenance | Monthly soak              | Weekly              | Monthly scrub
+Immersion   | Indefinite                | ❌Limited           | Indefinite
+Price       | ❌\$140 + \$68 for EZO-EC | \$70 + external ADC | $72 + \$68 for EZO-EC
+
+**✅Selected: BlueLab PROBPCEC** because is cheaper and easier to clean compared to the Atlas that uses a "sensing cavity design" that is hard to scrub.
+
+##### 7.2.3. Temperature Probes
+
+The Bluelab Temperature Probe was included because it is the industry standard for durability in commercial hydroponic reservoirs. While the Atlas Scientific PT-1000 is more accurate for laboratory use, the Bluelab probe is favored by professional growers because its housing is specifically engineered to withstand "24/7" immersion in harsh, mineral-heavy nutrient solutions without drifting or corroding.
+
+Feature     | ✅Atlas Scientific PT-1000 | DFRobot Gravity PT1000 | BlueLab PROBTEMP
+------------|--------------------------|----------------------|-------------------------
+Class       | Laboratory grade         | Industry grade       | Industry grade
+Sensor type | Class A platinum RTD     | Class A platinum RTD | Thermistor / RTD Hybrid
+Interface   | I2C/UART                 | ❌Analog             | ❌Analog
+I/O voltage | 3.3 - 5V                 | 3.3 - 5.0V           | 3.3 - 5V
+Range       | -200 - 850°C             | -30 - 350°C          | 0 - 50°C (optimized)
+Accuracy    | ±(0.15 + 0.002*T)°C      | ±0.3 - 0.6°C         | ±1.0°C
+Lifespan    | ~10 yr                   | >0.5 yr              | Industrial grade
+Maintenance | Monthy wipe              | Periodic soak        | Set-and-forget
+Immersion   | Indefinite               | ❌Limited            | Indefinite
+Price       | \$24 + \$36 for EZO-RTD  | \$59 + external ADC  | \$60 + external ADC
+
+**✅Selected: Atlas Scientific PT-1000** because it has a long lifespan and supports a I2C interface when combined with the Atlas EZO-RTD.
+
+### 7.3. Probe Isolation Strategy
+
+In a mineral-heavy reservoir, the "hidden" enemy is **ground loops** causing probe interference. Since water is conductive, multiple probes (pH, EC) in the same tank act like batteries, leaking small currents that distort each other's readings.
+
+Note that the EZO-RTD does not require isolation; temperature measurements are resistance-based and immune to the electrical noise that affects electrochemical probes.
+
+To prevent this, one can use the professional Isolated I2C approach or a Time Division Multiplexing (TDM) hack.
+
+#### Technologies considered
+
+Feature      | ✅Isolated I2C (EZO Style)     | TDM / MOSFET Switching
+-------------|--------------------------------|-----------------------
+Philosophy   | Continuous, simultaneous data  | One sensor at a time (sequential)
+Hardware     | I2C and DC/DC isolator         | MOSFETs + ADS1115 (16-bit ADC)
+Ground Loops | Eliminated by physical air gap | Reduced, but still risky
+Complexity   | Low (Plug and Play).           | High (complex wiring & timing)
+Accuracy     | Highest (no interference)      | Moderate (switching noise/latency)
+Cost         | ~$40–$60 for all channels      | ~$15 for all channels
+
+**✅Selected: Isolated I2C**, because chemical probes (especially pH) require a constant charge to remain stable. Turning them off/on frequently causes "reading drift" and significantly slows down your data refresh rate.
+
+#### Parts considered
+
+The Atlas Scientific ISO-I2C Brand Isolator primarily uses the ADM3260 chip from Analog Devices. Older or USB versions of their isolated carrier boards previously utilized a Silicon Labs SI8600 bidirectional I2C isolator and an RFM-0505 or Mornsun B0505S isolated DC-DC converter. 
+
+Feature    | ADM3260          | Atlas ISO-I2C Board | uFire / DFRobot Isolators
+-----------|------------------|---------------------|--------------------------
+Footprint  | IC and glue      | Mezzanine board     | Mezzanine board
+Difficulty | Layout sensitive | Plug & play         | Plug & play
+Price      | \$5              | \$32                | \$20
+
+Prices are per channel
+
+
+
+---
 
 
 ### 4. Microcontroller Selection

@@ -1861,6 +1861,36 @@ Wait — the LH25 spec states it the other way. Here is the correct behaviour:
 When water rises to the switch, the float arm lifts → reed closes → circuit makes.
 When water drops below the switch, the float arm falls → reed opens → circuit breaks.
 
+
+
+---
+
+
+
+**Decision: FLOAT_LOW and FLOAT_HIGH provide hardware-enforced cutoffs, not software-only.**
+
+To ensure fail-safe operation independent of MCU firmware, each float switch drives a small NPN transistor that directly pulls the respective MOSFET gate to GND when its cutoff condition is met. The MCU can still read the float state via GPIO for monitoring and alerting, but the hardware path acts regardless of software state.
+
+**FLOAT_LOW (GPIO0) → Main Pump (Q1) hardware cutoff:**
+- GPIO0 HIGH = water below LOW mark (switch open, pull-up active) = pump must stop
+- GPIO0 drives NPN transistor base; NPN collector tied to Q1 gate
+- When GPIO0 HIGH: NPN saturates → Q1 gate pulled to ≈GND → pump off (hardware)
+- When GPIO0 LOW: NPN off → Q1 gate controlled by GPIO10 normally
+
+**FLOAT_HIGH (GPIO1) → ATO Valve (Q8) hardware cutoff:**
+- FLOAT_HIGH is wired with pull-DOWN + switch-to-3.3V (reversed from FLOAT_LOW)
+  so that GPIO1 HIGH = water at/above HIGH mark = consistent active-HIGH logic
+- GPIO2 drives NPN transistor base; NPN collector tied to Q8 gate
+- When GPIO1 HIGH: NPN saturates → Q8 gate pulled to ≈GND → ATO valve closes (hardware)
+- When GPIO1 LOW: NPN off → Q8 gate controlled by GPIO7 normally
+
+**Additional components required (per channel):**
+- 1× MMBT3904 NPN transistor, SOT-23 (~$0.05)
+- 1× 4.7kΩ base resistor, 0805 (already in BOM)
+
+
+
+
 ---
 
 ### 6.6 Mounting the Float Switches
@@ -2112,6 +2142,19 @@ Pump Side Connection Options:
 - **C2 (100nF bypass)**: Place within 5mm of Q1 DRAIN pin for best performance
 
 ### 7.2 24V Dosing Pump Drivers — TMC2209 Stepper (×3)
+
+
+Using a **single UART bus** with the MS1 and MS2 pins for addressing is the most "EZO-like" way to handle your **TMC2209** drivers—it keeps your pin count low and your control digital.
+
+By hard-wiring the MS1 and MS2 pins to different logic levels (GND or VCC), you assign each driver a unique **Node Address** (0 to 3). This allows you to send commands like VACTUAL (speed) or IRUN (current) to specific pumps using only one TX/RX pair from your microcontroller.
+
+**The "One-Wire" UART Schematic**
+TMC2209s use a single-wire UART. Since your MCU likely has separate TX and RX pins, you must merge them:
+- Connect **MCU TX** to a 1k  resistor, then to the PDN_UART pins of all three drivers.
+- Connect **MCU RX** directly to the PDN_UART pins of all three drivers.
+- Add a **10k pull-up resistor** from the UART line to your 3.3V logic rail to ensure the bus stays high during idle.
+
+
 
 
 Three TMC2209 stepper drivers (QFN-28) each drive one ANKO A200SX bipolar stepper peristaltic pump. All drivers operate in **UART mode** via GPIO21/22 (ESP32-C6 UART1).
@@ -2665,9 +2708,564 @@ Use GPIO8 in firmware for status indication (do not route GPIO8 to any PCB pad).
 
 ## 10. PCB Layout Guidelines
 
-### 10.1 Layer Stack (2-layer)
-- Top: Signal + Power
-- Bottom: Ground plane (solid)
+The **three stepper motors** for dosing (Nutrient A, Nutrient B, and pH Down) alongside a 24V valve **solenoid** turns your PCB into a high-noise environment. Stepper drivers are notorious for creating Electromagnetic Interference (EMI) and ground bounce that can "ghost" your I2C bus or cause your pH readings to jump.
+
+### Power Entry Schematic Logic
+
+The 24V enters the board and passes through a "protection gauntlet" before it reaches the motors or the sensitive sensor logic.
+
+### The Signal Path:
+
+1. **DC Input Jack:** (Standard 2.1mm or Terminal Block).
+2. **Main Fuse:** (F1) 4A Fast-Acting. This protects your house from a short circuit on the PCB. Not using PTC, because of Response Time and Voltage Drop.
+3. **Reverse Polarity Diode (D1):** 3A Schottky (B340A). Wired in series. If you plug the power in backward, this stops the current instantly, saving the TMC2209s.
+4. **TVS Diode (D2):** 30V (SMCJ30A). Wired in parallel (clamped to Ground). If the solenoid or motors create a "kickback" spike over 30V, this diode "eats" the spike.
+5. **Main Bulk Capacitor (C_Bulk):** 470µF 35V Electrolytic. This is your "local battery" that provides the surge current for the motor steps.
+
+### Tiered Capacitor Strategy
+
+You cannot rely on one big capacitor to clean all types of noise. You need three "tiers" to handle different frequencies:
+
+1. **Tier 1:** The Reservoir (Low Frequency)
+   - Value: 470µF Electrolytic (Low-ESR).
+   - Location: At the very start of the 24V rail.
+   - Job: Stops the voltage from "sagging" when the ANKO motors start moving.
+2. **Tier 2:** The Local Buffer (Medium Frequency)
+   - Value: 100µF 35V Electrolytic (x3).
+   - Location: Place one directly next to the VM (Motor Power) pin of each TMC2209.
+   - Job: Absorbs the high-speed "ripple" caused by the TMC2209 switching the motor coils at 30kHz+.
+3. **Tier 3:** The Filter (High Frequency)
+   - Value: 0.1µF and 10µF 50V Ceramic (1206 footprint).
+   - Location: Scattered at the ADM3260 inputs and the MCU power pins.
+   - Job: Filters out the "electrical hiss" from the motors so it doesn't corrupt your I2C data.
+
+### Critical Component Placement (The "Zone" Map)
+
+On your **4-layer PCB**, physical distance is your best friend. You must separate the "Noisy" from the "Quiet."
+1. **Zone A:** The Power Entry (Dirty)
+  - Place the Fuse, Diodes, and 470µF Cap right at the edge of the board near the power plug.
+2. **Zone B:** The Motor Drive (Noisy)
+   - Place the 3x TMC2209 drivers and their 100µF caps in a cluster.
+   - Constraint: Keep the traces to the ANKO motor headers as short as possible.
+3. **Zone C:** The Digital Core (Clean)
+   - Place your MCU and LiDAR header here. Use a high-quality 5V/3.3V regulator to step down the 24V for this zone.
+4. **Zone D:** The Sensor Islands (Isolated)
+   - The ADM3260 and the pH/EC BNC connectors.
+   - Placement: Put these at the opposite end of the board from the TMC2209s.
+
+### Summary Checklist for the Schematic
+
+Component | Part | Value | Quantity
+----------|------|-------|---------
+Fuse | 0451004.MRL | 4A | 1
+Schottky | B340A-13-F | 3A / 40V | 1
+TVS Diode | SMCJ30A | 30V | 1
+Main Bulk | Panasonic FR | 470µF / 35V | 1
+Motor Bulk | Panasonic FR | 100µF / 35V | 3
+Logic Caps | Ceramic X7R | 0.1µF & 10µF | Many
+
+### Star Power Rule
+
+Run a dedicated pair of 24V wires from your main power input connector directly to the stepper section, and a separate pair to the logic regulator. Do not "daisy chain" the power from the motors to the sensors. If the motors "sag" the voltage during a high-torque move, the ADM3260 might drop its isolated 5V rail, causing your pH sensor to reset.
+
+### 4-Layer Trace Width Recommendations
+
+Since the peak load is~2.5A (2 ANKO pumps @ 1A each + 1 solenoid), we can optimize for a cool board (10°C rise) to protect sensor accuracy.
+
+Rail / Signal | Layer | Width | Current Capacity
+--------------|-------|-------|-----------------
+Main 24V Bus | L4 (Bottom) | 40 mils (1.0 mm) | ~3.0A
+24V Logic Tap | L3 (Power) | 15 mils (0.38 mm) | ~0.8A (to Regulators)
+Motor Phase | L4 (Bottom) | 15 mils (0.38 mm) | ~1.0A (Pulse)
+I2C / UART | L1 (Top) | 10 mils (0.25 mm) | Signal Only
+
+Vias: For any 24V transition between layers, use **two 12-mil (0.3mm) vias** in parallel to ensure low resistance and prevent "hot spots."
+
+### PCB Zone Map
+
+To maintain the "EZO-style" precision, we divide the board into four functional zones. The goal is to keep the **"Noisy" 24V switching** as far as possible from the **"Sensitive" Isolated Islands**.
+
+1. **Zone 1: Power Entry (Edge of Board)**
+   - Components: DC Jack, 4A Fast Fuse, 3A Schottky, TVS Diode, 470µF Bulk Cap.
+   - Goal: Kill spikes and provide bulk current immediately upon entry.
+2. **Zone 2: High-Power Drive (Bottom Half)**
+   - Components: 3x TMC2209 drivers, 3x 100µF caps, Solenoid MOSFET.
+   - Routing: Keep the 24V "VM" traces on L4 (Bottom).
+   - Thermal: Place the drivers here to utilize the L2 GND plane as a heatsink.   
+   - Power rail: 24V
+   - Noise profile: Extreme (source)
+3. **Zone 3: Digital Logic (Top Center)**
+   - Components: MCU, LiDAR header, 5V/3.3V Regulators, EZO-RTD (Non-isolated).
+   - Routing: Keep I2C/UART on L1 (Top), shielded by the L2 GND Plane.
+   - Power rail: 3.3V/5V
+   - Noise profile: Moderate (sensitive)
+4. **Zone 4: Isolated Islands (Top Corners)**
+   - Components: 2x ADM3260, EZO-pH/EC sockets, BNC connectors.
+   - The Moat: A physical 8mm gap in copper on ALL 4 LAYERS must separate this zone from everything else. 
+   - Power rail: Isolated via ADM3260
+   - Noise profile: zero tolerance
+
+
+**The "Split" Ground Plane:** This is the most critical rule. You must have a physical "Keep-Out" zone (at least 4mm to 8mm wide) of bare PCB under the chip, separating the Primary Ground (Microcontroller side) from the Secondary Ground (Sensor side). No copper traces or planes should cross this gap except through the chip itself. [1, 5, 8]   
+
+Since you also have 24V inductive loads such as the ATO valve and stepper motors, keep its high-current traces as far as possible from the pH and EC islands. Use a **thick ground trace** or **plane** for the 24V return to prevent "Ground Bounce" from affecting your 3.3V I2C logic.
+
+The gold standard for this specific "Multi-EZO" PCB layout is the **Atlas Scientific i2 InterLink** and the **Whitebox Labs T3 schematics**.
+- Source: Analog Devices AN-0971 (Recommendations for Control of Radiated Emissions with isoPower Devices). This document details how to use PCB "Stitching Capacitance" to keep the board quiet.
+
+
+### 3. 4-Layer Stack-Up
+
+Given the mix of sensitive I2C sensors (pH/EC), isolated DC-DC converters (ADM3260), and high-noise 24V steppers (TMC2209), a 4-layer PCB is highly recommended over a 2-layer design.
+1. **L1 (Top):** Signal Layer. I2C, UART, and all component pads.
+2. **L2 (GND):** Solid Unbroken Ground Plane. This is your shield. It absorbs the noise from the TMC2209s before it can hit the L1 signals.
+3. **L3 (Power):** Split Plane. One pour for **3.3V/5V**, one small pour for **24V**.
+4. **L4 (Bottom):** High-Current Layer. 24V Motor Bus and Motor Phase wires.
+
+### 4. Summary Checklist
+
+- **Star Grounding:** Connect the **Power Entry GND** to the **L2 Plane** at a single point near the input jack to prevent motor return currents from "washing" across the MCU logic.
+- **Capacitor Proximity:** Place the **0.1µF bypass caps** for the ADM3260 and MCU within **2mm** of their pins.
+- **Motor Cables:** When wiring the **ANKO motors**, keep the cables twisted and routed away from the **BNC** sensor leads.
+
+### Fly-back and Stiffen I2C 
+
+Steppers and solenoids are both inductive loads. When they turn off, they collapse their magnetic field, sending a high-voltage spike back into the system.
+- The Solenoid: You already have the Flyback Diode (1N4001) across the Digiten valve.
+- The Steppers: If using TMC2209 drivers, they have internal protection, but you should still ensure your I2C lines (SDA/SCL) have strong pull-ups (2.2k instead of 10k) to "stiffen" the signal against the magnetic noise of the motor cables.
+
+
+
+
+
+
+
+
+
+
+----
+
+# ADM3260 Specifics
+
+- **Stitching Capacitance:** To reduce Electromagnetic Interference (EMI) caused by the internal DC-DC converter, place a small amount of "stitching capacitance" across the isolation barrier. This is often achieved by overlapping internal PCB layers (if using a 4-layer board) or using a dedicated Y-rated capacitor. [1, 5, 12]
+
+- **Bypass Capacitors:** Place a 0.1µF ceramic capacitor as close as possible to the VCC and VISO pins. For the ADM3260, a 10µF tantalum or ceramic capacitor is also required on both the input and output power pins to handle the switching currents of the internal transformer. [5, 8, 12]
+
+- **Pull-up Resistors:** I2C requires pull-up resistors on both sides of the isolation barrier.
+  - Primary Side (SDA/SCL): 4.7k to 10k tied to the microcontroller's 3.3V/5V.
+  - Secondary Side (SDA_ISO/SCL_ISO): 1k to 4.7k tied to VISO. Using lower values (like 2.2k) on the isolated side helps maintain signal integrity in mineral-heavy environments where cable capacitance might be higher. [1, 5]
+
+- **Trace Lengths:** Keep the I2C traces between the ADM3260 and the EZO socket as short as possible to prevent picking up noise from your 24V solenoid or pump. [1, 8]
+
+Sources and Documentation:
+- **Analog Devices ADM3260 Datasheet:** The definitive source for "Layout Guidelines" and "EMI Considerations" (See pages 16-18). [5, 8]
+- **Atlas Scientific USB Isolator Schematic:** Their public hardware documentation shows the ADM3260 implementation for I2C isolation. [1, 10]
+- **AN-0971 Application Note:** "Recommendations for Control of Radiated Emissions with isoPower Devices." [12]
+
+
+# TMC2209 Specifics
+
+The **TMC2209** is the "gold standard" for this build because it features StealthChop2 (silent operation) and SpreadCycle (high torque), which will prevent the "whining" noise common in dosing pumps.
+
+However, since the TMC2209 is a high-speed chopper driver, it generates significant High-Frequency (HF) noise. On a single PCB with sensitive EZO-pH and EZO-EC modules, you must defend your I2C bus.
+1. **Thermal and Power Layout**
+The TMC2209 can handle up to 2.8A peak, but in a dosing application, you'll likely run much lower (around 0.5A to 1.0A).
+   - **The "Thermal Chimney":** Use a large GND plane on the bottom layer as a heatsink. Use multiple thermal vias directly under the TMC2209’s center thermal pad to pull heat away.
+   - **Bulk Capacitance:** You must place a large electrolytic capacitor (at least 100µF per driver) as close to the VM (Motor Power) pins as possible. This prevents the "LC voltage spikes" that can hit 35V+ and fry your 24V rail components.
+3. **Protecting the Isolated I2C Islands**
+The high-frequency switching of the TMC2209 can induce noise into the ADM3260's isolation barrier.
+   - **Trace Separation:** Keep the Motor Phase wires (the 4 wires going to each pump) away from the pH/EC BNC cables. These phase wires are "emitters" of EMI.
+   - **The I2C "Stiffener":** Since the TMC2209s are on the same PCB, use 2.2k  pull-up resistors on your main I2C bus. This "stiffens" the line, making it harder for motor noise to flip a bit from 0 to 1 (which would cause a sensor data error).
+
+**Code Strategy for Dosing**
+Since you are using pH Down and Nutrients, your logic should be:
+1. Read pH/EC (EZO sensors).
+2. Turn OFF the TMC2209 drivers (using the ENN or Enable pin) while reading the sensors to ensure 100% electrical silence.
+3. Calculate Dose.
+4. Enable Drivers and Step the motors.
+5. Wait for the reservoir to mix before reading again.
+
+Source: Trinamic TMC2209 Datasheet: See "Layout Considerations" (Section 20) regarding ground loops and thermal management. [Source: Analog Devices/Trinamic].
+
+**Noise Defense for the EZO-pH / EC**
+Since you are mixing high-speed UART signals and 24V stepper chopping on the same board as your ADM3260 isolated sensors:
+- **Zone the UART:** Keep the UART trace short and away from the BNC connectors of your pH and EC islands.
+- **The "Silent Read" Strategy:** In your code, you can use the ENN (Enable) pin of the TMC2209s. Before taking a sensitive pH reading, pull ENN HIGH to disable the motor power stage. This kills the 24V chopping noise instantly, giving your EZO-pH a perfectly quiet environment for that sub-0.01 pH precision.
+- **SpreadCycle vs. StealthChop:** Use StealthChop2™ for dosing. It’s not just quieter for your ears; it generates significantly less Electrical Noise (EMI) than the high-torque SpreadCycle mode, which is better for your EZO-EC data integrity.
+
+**Software Reference**
+Use the **TeensyStep** or **TMCStepper** library (by Peter Polidoro/teemuatlut). In your initialization, you will define them like this:
+
+```cpp
+TMC2209Stepper pumpA(&SERIAL_PORT, R_SENSE, 0); // Address 0
+TMC2209Stepper pumpB(&SERIAL_PORT, R_SENSE, 1); // Address 1
+TMC2209Stepper pumpC(&SERIAL_PORT, R_SENSE, 2); // Address 2
+```
+
+**Design Strategy for Your Build**
+
+- **The "Moat" on All Layers:** When creating the isolation islands for the ADM3260, ensure the "moat" (the physical gap between the main ground and isolated ground) cuts through all four layers. No copper should cross this gap.
+- **Stitching Capacitance:** To further reduce EMI from the ADM3260's internal switching, you can overlap a small area of the internal Ground (L2) and Isolated Ground planes to create a "stitching capacitor" within the PCB itself.
+- **Thermal Vias:** Use L2 and L3 to help dissipate heat from the TMC2209 drivers. Place multiple thermal vias directly under the motor drivers to pull heat away from the top layer and into the internal copper planes.
+- **EMI Shielding:** By keeping your high-speed switching (stepper drivers) on the bottom (L4) and your sensitive logic on the top (L1), the internal Ground and Power planes act as a Faraday shield, preventing motor noise from "leaking" into your pH and EC readings. 
+
+Sources: [Altium](https://resources.altium.com/p/4-layer-pcb-stackup), [Analog Devices](https://ez.analog.com/interface-isolation/f/q-a/599807/emi-issue) ([EngineerZone](https://ez.analog.com/interface-isolation/f/q-a/599807/emi-issue)), [ProtoExpress](https://www.protoexpress.com/blog/how-to-design-mixed-signal-pcb-with-signal-integrity/). 
+
+
+To visualize the **ADM3260** on a 4-layer stack-up, imagine the chip sitting like a bridge over a "canyon" (the moat). The goal is to ensure that no electrical path exists between the Mainland and the Island except through the silicon of the chip itself.
+
+**The 4-Layer "Island" Schematic Representation**
+
+Below is how the layers should be carved to maintain 2.5kV isolation while suppressing the EMI from your **TMC2209** steppers.
+
+Layer | Mainland (Digital/Motors) | The Moat (No Copper) | The Island (pH or EC)
+------|---------------------------|----------------------|----------------------
+L1 (Top) | MCU, LiDAR, Steppers | Clearance Gap | EZO Socket, BNC/SMA
+L2 (GND) | Solid Main GND Plane | Cutout (Full Stack) | Floating GND_ISO
+L3 (PWR) | 3.3V / 5V / 24V Planes | Cutout (Full Stack) | Floating V_ISO (5V)
+L4 (Bot) | Stepper Phase Traces | Clearance Gap | (Keep empty for signal)
+
+**ADM3260 Pin-to-Layer Connection Logic**
+1. **Side 1 (Pins 1-10 - The Mainland):**
+   - VCC (Pin 1): Connects to L3 (5V Plane) via a via.
+   - GND1 (Pin 2): Connects to L2 (Main GND Plane) via a via.
+   - SDA/SCL (Pins 3, 4): Routed on L1 directly from the MCU.
+2. **The "Bridge" (The Chip Body):**
+   - The 20-pin SSOP package sits physically over the Moat. Ensure the Moat is at least 8mm wide under the chip for high-voltage safety (creepage).
+3. **Side 2 (Pins 11-20 - The Island):**
+   - VISO (Pin 20): Connects to a small copper pour on L3 inside the island. This powers the EZO circuit.
+   - GNDISO (Pin 19): Connects to the Floating GND_ISO on L2 inside the island.
+   - SDA_ISO/SCL_ISO (Pins 17, 18): Routed on L1 to the EZO socket pins.
+
+**The "Stitching" Secret (For EMI)**
+
+Because the ADM3260 uses an internal isoPower transformer switching at ~180MHz, it can cause the "Island" to act like a radio antenna.
+- The Fix: On L2 (GND) and L3 (PWR), allow the Mainland copper and the Island copper to overlap by about 1cm but stay on different layers. This creates a "PCB embedded capacitor" that shunts high-frequency noise without breaking DC isolation [1].
+
+**Critical Schematic Note: Pull-ups**
+You must have two sets of pull-up resistors:
+- Mainland side: 4.7kΩ to 3.3V (for your MCU logic).
+- Island side: 2.2kΩ to VISO (the isolated 5V). Using a "stiff" 2.2kΩ here is better for fighting the 24V motor noise [1].
+
+Sources
+- [1] Analog Devices ADM3260 Datasheet: Section "Layout Guidelines" (Page 17) and "EMI Considerations" (Page 18) [1].
+- [2] Atlas Scientific EZO-ISO Schematic: Confirms the use of ADM3260 with 0.1µF and 10µF bypass caps on both sides of the barrier [2].
+
+**Bypass caps**
+
+To ensure the ADM3260 remains stable while your TMC2209 steppers are switching 24V nearby, you need a specific mix of "bulk" and "decoupling" capacitors. High-frequency noise from the ADM3260's internal transformer can cause "phantom" I2C data if these are omitted.
+
+ADM3260 Isolation Island BOM (Per Channel)
+
+Component | Value | Package | Function | Notes
+----------|-------|---------|----------|------
+C1, C4 | 0.1µF | 0603/0805 | HF Decoupling | Ceramic (X7R). Place <2mm from pins 1 and 20.
+C2, C3 | 10µF | 0805/1206 | Bulk Storage | Tantalum or Low-ESR Ceramic. Handles surge.
+R1, R2 | 4.7k | 0603 | Pull-up (Main) | Connect to MCU 3.3V/5V Rail.
+R3, R4 | 2.2k | 0603 | Pull-up (ISO) | "Stiff" pull-up to V_ISO to fight motor EMI.
+L1 (Optional) | Ferrite Bead | 0603 | EMI Filter | Place on VCC/VISO lines if using 2-layer board.
+
+**Component Placement Strategy**
+
+1. **The "Pair" Rule:** Each side of the ADM3260 needs one 0.1µF (for high-frequency noise) and one 10µF (for power stability) capacitor.
+2. **Proximity:** The 0.1µF caps are the most critical. If they are more than 5mm away from the chip, the trace inductance will render them useless against the 180MHz switching noise of the isoPower transformer.
+3. **Resistor Selection:** Use 1% tolerance resistors. While 5% works, 1% ensures the I2C rise times are identical on SDA and SCL, preventing timing "jitter" that can occur in high-noise environments.
+
+**4-Layer Trace Routing Logic**
+- **VCC/VISO:** Route these on Layer 3 (Power Plane) using a "star" pattern from the ADM3260 to the EZO socket.
+- **SDA/SCL:** Route on Layer 1 (Top). Ensure they are at least 3x the trace width away from any other signal to prevent crosstalk.
+- **Keep-Out Zone:** Double-check that no copper (including ground pours) exists on any layer within the 8mm "moat" beneath the ADM3260.
+
+Source Verification
+- Analog Devices ADM3260 Datasheet (Table 7): Specifies the 0.1µF and 10µF capacitor requirements for stable 
+ output. [Source: Analog Devices].
+- Atlas Scientific EZO-ISO Schematic: Confirms the use of 4.7k on the primary and 2.2k on the isolated side for robust I2C communication. [Source: Atlas Scientific].
+
+To ensure your single-PCB design handles the high-frequency switching of the ADM3260 and the 24V noise from the TMC2209 drivers, use these specific high-performance components.
+The capacitors selected are X7R dielectric (stable over temperature) and Low-ESR to handle the internal transformer's ripple.
+
+**ADM3260 Isolation Bill of Materials (BOM)**
+
+Component | Part Number (DigiKey/Mouser) | Manufacturer | Description | Approx. Price
+----------|------------------------------|--------------|-------------|--------------
+Isolator IC | ADM3260ARSZ | Analog Devices | I2C Isolator with DC-DC | $7.85
+0.1µF Cap | C0603C104K5RACTU | KEMET | 0603 X7R 50V Ceramic | $0.10
+10µF Cap | CL21A106KPFNNNE | Samsung | 0805 X5R/X7R 10V Ceramic | $0.15
+4.7kΩ Res | RC0603FR-074K7L | Yageo | 0603 1% (Mainland Side) | $0.05
+2.2kΩ Res | RC0603FR-072K2L | Yageo | 0603 1% (Isolated Side) | $0.05
+Ferrite Bead | BLM18HG601SN1D | Murata | 0603 600 Ohm @ 100MHz | $0.
+
+** Engineering Notes for the BOM:**
+
+1. **Capacitor Selection:** Do not use Y5V or Z5U dielectric capacitors. They lose up to 80% of their capacitance when biased at their rated voltage. X7R is mandatory for the 0.1µF decoupling caps to filter the 180MHz noise of the ADM3260 [1].
+2. **The Ferrite Bead (Optional but Recommended):** Placing a ferrite bead on the VCC and VISO lines (between the 10µF and 0.1µF caps) provides a "cleaner" rail by blocking high-frequency noise from traveling back to your MCU or into your sensitive pH probe [2].
+3. **Low-ESR:** For the 10µF bulk capacitors, ceramic is preferred over electrolytic or tantalum for this specific chip because of its lower Equivalent Series Resistance (ESR), which is better at handling the rapid "pulsing" of the isoPower transformer [1].
+
+**Design Source Verification:**
+- **Analog Devices (ADM3260 Datasheet):** Confirms the requirement for a 10µF and 0.1µF capacitor pair on both VDD1 and VISO to maintain stability [1].
+- **Murata EMI Guide:** Recommends the BLM18 series ferrite beads for suppressing high-frequency noise in isolated DC-DC converters [3].
+
+[1] Analog Devices ADM3260 Datasheet
+[2] Atlas Scientific EZO-ISO Schematic
+[3] Murata Ferrite Bead Application Guide
+
+# Power Rail
+
+To protect your 4-layer PCB and the sensitive EZO-pH/EC islands from the massive inductive spikes generated by three **TMC2209** drivers and a **24V solenoid**, you need a "Power Entry" stage. This stage acts as a shock absorber for the **24V motor rail** (VM).
+
+Without these specific components, the back-EMF from the steppers can exceed 35V, potentially punching through the **ADM3260** isolation barrier or frying your logic regulators.
+
+**TMC2209 & Solenoid Power-Rail BOM (24V Motor Rail)**
+
+Component | Part Number (DigiKey/Mouser) | Manufacturer | Description | Approx. Price
+----------|------------------------------|--------------|-------------|--------------
+Bulk Cap | EEU-FR1V471 | Panasonic | 470µF 35V Low-ESR Electrolytic | $0.65
+TVS Diode | SMCJ30A | Littelfuse | 30V 1500W Unidirectional TVS | $1.10
+Schottky Diode | 1N5819HW-7-F | Diodes Inc. | 40V 1A Schottky (Reverse Protect) | $0.15
+Local Decoupling | C1206C105K5RACTU | KEMET | 1µF 50V 1206 X7R Ceramic | $0.20
+
+**Engineering Strategy for the 24V Rail**
+- **The 470µF "Buffer":** Place this large capacitor at the **main 24V input**. It provides the instantaneous current the TMC2209s need to step. According to **Trinamic's Layout Guide**, you should also place a smaller **100µF** cap directly next to the **VM pin** of *each* driver if they are more than 5cm apart.
+2. **SMCJ30A TVS Diode:** This is your "Insurance Policy." If the 24V Solenoid or a Stepper creates a spike over 30V, this diode clamps the voltage to ground instantly. Place this at the power entry point.
+3. **Low-ESR is Mandatory:** Standard electrolytic capacitors are too slow. The **Panasonic FR Series** is specifically chosen for its low ESR, which is required to filter the high-frequency "ripple" (noise) from the TMC2209's **StealthChop** logic.
+4. **Reverse Polarity Protection:** The **1N5819 Schottky** prevents the board from blowing up if you accidentally swap the 24V Positive and Negative wires during installation.
+
+** 4-Layer PCB Routing for 24V**
+
+- **Layer 4 (Bottom):** Use this for the **24V Bus**. Make the traces at least **80–100 mils wide** to handle the combined current of 3 motors and 1 solenoid.
+- **Layer 2 (GND):** Ensure the high-current motor ground returns to the power jack through a **massive copper pour**. Do not let this motor return current "wander" near the **ADM3260** ground pins.
+
+Source Verification
+- **Trinamic TMC2209 Datasheet (Section 20):** Recommends 100µF per driver for supply filtering. [Source: Analog Devices/Trinamic].
+- **Pololu A4988/TMC2209 Guide:** Specifically warns about LC Voltage Spikes destroying drivers without adequate bulk capacitance. [Source: Pololu].
+
+
+
+The **Power Entry Stage** protects your **4-layer PCB** by acting as a shock absorber at the point where the 24V supply enters the board. This stage is critical for shielding your **EZO-pH/EC islands** from the inductive "kick" of the **TMC2209 steppers** and the **24V solenoid**.
+
+**Power Entry Schematic Logic**
+The components must be wired in a specific order—from the "outside world" to your "internal rails"—to ensure that a fault in the motors doesn't travel back to your sensors.
+1. **Main Fuse:** Wired in series on the 24V Positive line. It is the first line of defense against a dead short in a stepper driver.
+2. **Reverse Polarity Diode (Schottky):** Wired in *series* immediately after the fuse. It prevents current from flowing if the 24V wires are swapped.
+3. **TVS Diode (SMCJ30A):** Wired in *parallel* (clamped to ground) after the Schottky diode. It shunts any voltage spikes above 30V to ground before they reach the drivers.
+Main Bulk Capacitor (470µF): Wired in *parallel* (clamped to ground). This acts as a reservoir to prevent the 24V rail from "sagging" when all three pumps start
+
+**Critical Component Placement for 4-Layer PCB**
+- **Distance:** Place this entire "Power Entry Block" as close to the physical power connector as possible.
+Thermal: The Schottky diode will get warm under load (approx. 0.3V–0.6V drop). Use a large copper pour on Layer 1 and Layer 4 to dissipate heat.
+- **Star Connection:** Branch your **Logic Regulator** (the 5V/3.3V supply for the MCU and EZO-RTD) from the point **after** the Bulk Capacitor. This ensures the "cleanest" possible power for your digital bus.
+- **Local Caps:** In addition to the 470µF main cap, you must still place a **100µF capacitor** directly at the VM pin of each of the three TMC2209 drivers to handle local switching ripple. 
+
+For the 24V Solenoid, wire its positive side to the 24V Motor Rail and its negative side to your MOSFET. Ensure the **1N4001 Flyback Diode** is at the solenoid itself, not on the PCB, to keep high-frequency noise out of the board's ground plane.
+
+
+
+To calculate the correct trace widths for your 4-layer PCB, we must account for the combined current of *three TMC2209 stepper motors* (dosing pumps) and one 24V Digiten solenoid.
+
+Overheating a trace on a 4-layer board is dangerous because the heat can delaminate internal layers or drift the calibration of nearby *EZO-pH/EC islands*.
+
+Current Load Assumptions
+- **3x Stepper Motors:** ~1.5A total (assuming ~0.5A per dosing pump for NEMA 17 or smaller geared steppers).
+- **1x Solenoid:** ~0.5A (Standard 24V 1/4" NC valve).
+- **Total Peak Current:** 2.0A continuous (if all are running simultaneously).
+
+**Trace Width Calculations (IPC-2221 Standard)**
+Using a standard 1oz copper weight (35um thickness) and a target temperature rise of only 10°C (to keep the board cool for the sensors):
+
+Trace Location | Layer | Recommended Width | Cross-Sectional Area
+---------------|-------|-------------------|---------------------
+Main 24V Bus | L4 (Bottom) | 60 mils (1.52 mm) | 
+Main 24V Bus | L3 (Internal) | 150 mils (3.81 mm) | 
+Motor Phase | L4 (Bottom) | 20 mils (0.51 mm) | 
+Logic (3.3V/5V) | L1 (Top) | 10 mils (0.25 mm) | 
+
+**Critical Routing Rules for 4-Layer Power**
+
+1. **Internal vs. External:** Heat dissipates much slower on internal layers. If you route the 24V bus on Layer 3, you must make it 2.5x wider than if it were on the bottom layer. I recommend keeping the high-current 24V rail on Layer 4 for better cooling.
+2. **The "Neck" Constraint:** Ensure the trace remains wide even as it enters the TMC2209 pins. If you have to "neck down" to reach a pin, keep that thin section shorter than 5mm.
+3. **Via Stitching:** If you must switch the 24V rail between layers, use multiple vias (at least 3–4 vias per 2A connection). A single standard 10-mil via is only rated for about 0.5A–1A before it acts like a fuse.
+4. **Ground Return:** Your Layer 2 (Ground Plane) must be solid under the motor section. The return current for 2A needs a clear path back to the power jack; do not allow the ADM3260 Moats to block this return path, or the current will "loop" around the board, creating massive EMI.
+
+Sources: IPC-2221 Trace Width Calculator, Altium PCB Design Guide.
+
+
+
+#### 3. Isolation Islands (Per ADM3260)
+As previously discussed, the ADM3260 generates its own isolated 5V. It is extremely sensitive to capacitor placement. Use X7R dielectric for stability.
+
+Side | Value | Role | Placement
+-----|-------|------|----------
+Primary (Input) | 10µF + 0.1µF | Stabilize 5V Input | < 2mm from Pins 1 & 2.
+Isolated (Output) | 10µF + 0.1µF | Stabilize ISO Rail | < 2mm from Pins 19 & 20.
+
+#### 4. Digital Core (MCU & LiDAR)
+
+Since the TF-Luna LiDAR and MCU share the 3.3V/5V mainland rail, they need protection from the 24V "noise floor."
+
+Component | Value | Role
+----------|-------|-----
+TF-Luna Header | 100µF / 10V | Electrolytic/Tantalum near the header to prevent "brownouts" during laser pulses.
+I2C Bus | 0.1µF | Scattered near pull-up resistors to keep the SDA/SCL lines quiet.
+
+**Capacitor Placement "Rules of Thumb":**
+- **Trace Length:** For the 0.1µF bypass caps, the trace length between the cap and the IC pin must be shorter than 3mm. Every millimeter of trace adds "inductance," which makes the capacitor less effective at high frequencies.
+- **Via-to-Ground:** Connect the ground side of your capacitors directly to your Layer 2 (Ground Plane) with a via as close to the pad as possible.
+- **Voltage Headroom:** Always use capacitors rated for at least 2x the operating voltage (e.g., use 50V caps for a 24V rail). This accounts for "DC Bias aging," where ceramic caps lose capacity as voltage increases.
+
+**Capacitor footprints**
+
+For a high-power dosing board with 24V rails and delicate I2C sensors, I recommend a mix of 0805 and 1206 footprints.  0805 is the "sweet spot" for hand-soldering: large enough to see and manipulate with tweezers, but small enough to fit three pumps and two sensors on a compact 4-layer PCB.
+
+Component | Value | Recommended Footprint | Why This Size?
+----------|-------|-----------------------|---------------
+Bypass Caps | 0.1µF | 0805 | Easy to hand-solder; handles the 180MHz ADM3260 noise.
+I2C Pull-ups | 2.2k / 4.7k | 0805 | Standard size; easy to probe with a multimeter during testing.
+Bulk Ceramics | 10µF | 1206 | Critical: High-capacity ceramics (10µF/50V) in 0805 lose too much capacitance due to "DC Bias." 1206 holds its value better.
+Bulk Electrolytic | 470µF | Radial (8mm - 10mm) | Through-hole (THT) is much more durable for large capacitors than SMD.
+Solenoid MOSFET | N-Channel | SOT-23 or TO-252 | TO-252 (DPAK) is easier to solder if you need to dissipate heat from the solenoid.
+Reverse Diode | 1N5819 | SOD-123 or SMA | SMA (Surface Mount) has large pads that are very easy to hit with a soldering iron.
+
+# Hand-Soldering
+
+1. **Thermal Reliefs:** Because your **Layer 2 (Ground Plane)** is a massive sheet of copper, it will "suck" the heat away from your soldering iron. Ensure your PCB design software uses Thermal Reliefs (spokes) for ground pads, or you will struggle to get the solder to melt.
+2. **Flux is Mandatory:** When soldering the **ADM3260** (SSOP-20 package), use plenty of liquid flux. It prevents bridges between the tiny pins and makes the solder flow onto the pads instantly.
+3. **The "Island" Connectors:** For your **pH/EC BNC connectors**, use Through-Hole versions. Surface-mount BNCs can easily tear off the board if you accidentally tug on a probe cable.
+4. **Height Clearance:** Place the tall **470µF electrolytic cap** and the **EZO-PMP headers** near the edges of the board so they don't block your iron when you try to solder the smaller components in the center.
+
+Since you are using **1206** for the bulk 10µF caps, ensure you leave enough space around the **ADM3260** pins. Those caps need to be close to the chip, but 1206 takes up significantly more "real estate" than 0603.
+
+#### Hand soldering
+
+Hand-soldering a 4-layer PCB with an ADM3260 (SSOP package) and EZO modules is a fun challenge, but the internal copper planes act like a giant heat sink. If you aren't careful, you'll get "cold solder joints" where the solder balls up instead of flowing into the hole.
+
+Here are the specific hand-soldering "hacks" for your reservoir controller:
+1. **The "Pad-Extension" Strategy**
+When designing your footprints in your PCB software (KiCad), use "Hand-Soldering" or "Large" versions of the 0805 and 1206 pads. These footprints extend the copper pad slightly further out from under the component body. This gives you a "landing zone" for your soldering iron tip to touch both the pad and the component lead simultaneously.
+2. **Thermal Reliefs: Mandatory for 4-Layer**
+Since Layer 2 is a solid GND plane, any pin connected to Ground will be nearly impossible to heat up with a standard iron. The Fix: Ensure every Ground pad has **Thermal Relief spokes** (4 small traces connecting the pad to the plane). If you use "Solid Connection," the plane will suck the heat away so fast the solder will never melt.
+3. **Soldering the ADM3260 (SSOP-20)**
+This is the hardest part. The pins are close together (0.65mm pitch).
+- **The "Tack and Drag" Method**:
+  1. Tack one corner pin to align the chip.
+  2. Flood all 10 pins on one side with Tacky Flux.
+  3. Put a small "blob" of solder on your iron tip.
+  4. Drag the iron across the pins. The flux will magically pull the solder onto the pads and off the green solder mask.
+- Use a **"Hoof" or "Chisel" tip**, not a needle-point tip. Needle tips don't hold enough thermal mass for 4-layer boards.
+4. Component Height Order
+Solder from the center-out and shortest-to-tallest:
+  1. **Lowest:** Resistors and 0805/1206 Capacitors.
+  2. **Medium:** ADM3260, MOSFET, and TVS Diode.
+  3. **Tallest:** EZO Headers, BNC Connectors, and that big 470µF Electrolytic Cap.
+     - Tip: Solder the big cap last so it doesn't get in the way of your hand while doing the fine work.
+5. **The "Island" Bridges**
+Since you have Isolation Moats, be extremely careful not to let a stray "solder splash" bridge the gap between your Mainland Ground and your pH/EC Island Grounds. Even a tiny whisker of solder across the moat will destroy your isolation and make your pH readings jump when the pumps run.
+
+**Recommended "Hand-Solder" Tools for this Build:**
+- **Solder:** 63/37 Lead-based solder (it flows much better than lead-free for 4-layer boards).
+- **Flux:** A "No-Clean" Flux Pen or a syringe of Gel Flux.
+- **Magnification:** A jeweler’s loupe or a cheap USB microscope to check the ADM3260 for bridges.
+
+#### Clearance
+
+For a 4-layer PCB that you are soldering by hand, you need to balance two competing needs: high-voltage safety (creepage) and the physical reality of a soldering iron tip.
+In a mineral-heavy reservoir environment, humidity can cause "tracking" (electricity jumping across the board surface), so your Moats must be wider than a standard digital gap.
+
+1. The "Safety Moat" Clearance
+Set your **Design Rule Check (DRC)** for the following minimums specifically around the **ADM3260** and the pH/EC Islands:
+   - **Minimum Moat Width: 5.0 mm to 8.0 mm.**
+Why: While 2.5 mm is technically enough for 2.5kV isolation, an 8 mm gap ensures that a stray "solder splash" or a drop of nutrient-rich condensation won't bridge the gap.
+   - **Copper-to-Board-Edge: 1.0 mm.**
+Why: This prevents the V-cut or router bit from smearing copper across the isolation boundary during manufacturing.
+   - **Solder Mask Expansion: 0.05 mm.**
+Why: This ensures the green "paint" (solder mask) stays as close to the pad as possible, preventing solder from bridging between the tight SSOP-20 pins of the ADM3260.
+
+2. **Hand-Soldering "Keep-Out" Zones**
+Since you are soldering by hand, the tip of your iron (usually 1.5mm–2.4mm wide) needs "elbow room."
+   - **The "Shadow" Zone:** Do not place the 1206 Bulk Capacitors (10µF) directly in front of the ADM3260 pins. Leave at least 3 mm of horizontal clearance.
+     - If they are too close: You won't be able to lay your iron flat enough to "drag solder" the chip pins without melting the plastic end of the capacitor.
+   - **The BNC Overhang:** Most *Through-Hole BNC connectors** have large metal legs. Ensure the "Moat" starts at least **2 mm** away from the BNC pads. If the BNC leg is right on the edge of the moat, it's very easy to accidentally bridge to the "Mainland" ground plane with a blob of solder.
+
+3. Moat Integrity Checklist
+Before you hit "Generate Gerbers," run these three manual checks in your PCB software:
+   - **The "Ghost" Check:** Turn off all layers except Layer 2 (GND) and Layer 3 (PWR). Ensure the "canyon" is completely empty of copper. No floating traces, no vias, no text.
+   - **The "Stitching" Check:** Ensure your internal Ground (Mainland) and Isolated Ground (Island) overlap slightly on different layers (e.g., L2 Mainland overlaps L3 Island) to create that EMI-filtering capacitance we discussed, but check that they are separated by the board substrate.
+   - **The Silkscreen Labels:** Since you have three EZO-PMPs and two sensors, label the "Island" side clearly on the silkscreen (e.g., "ISO-PH" and "ISO-EC"). This prevents you from accidentally plugging a non-isolated sensor into an isolated port during assembly.
+
+**Summary Table for DRC Settings**
+
+Parameter | Hand-Solder Value
+----------|------------------
+Track to Track | 8 mils (0.2 mm)
+Track to Pad | 8 mils (0.2 mm)
+Moat (Isolation Gap) | 250 mils (6.35 mm)
+Minimum Via Drill | 12 mils (0.3 mm)
+Via Pad Diameter | 24 mils (0.6 mm)
+
+**Pro-Tip:** If your software allows, add a **"Route Keep-Out"** area over the moats. This prevents the "Auto-Router" from trying to be "helpful" by running a 24V line across your isolation gap!
+
+
+### By limiting the ANKO A200SX to 1.0A RMS and restricting operation to two pumps max, you significantly reduce the "thermal and electrical stress" on your 4-layer PCB. Your total peak current (2 pumps + 1 solenoid) is now ~2.5A, down from the 5.6A worst-case scenario.
+
+#### 1. Revised Power Entry (Simplified)
+
+You can move away from massive "industrial" components to standard, high-quality SMD parts.
+- Main Fuse: Change to 3A or 4A (Fast-acting).
+- Reverse Polarity Diode: Use a 3A Schottky (e.g., B340A-13-F in an SMA package). It’s much smaller and easier to hand-solder.
+- Bulk Capacitance: A single 470µF 35V Low-ESR Electrolytic at the 24V entry is now perfectly sufficient for two simultaneous 1A steps.
+
+#### 2. PCB Trace Widths (Space-Saving)
+
+With a 2.5A peak load, your trace widths can be narrowed, freeing up room for your ADM3260 isolation islands.
+
+Rail | Layer | New Width
+-----|-------|----------
+Main 24V Bus | L4 (Bottom) | 40 mils (1.0 mm)
+Motor Phase | L4 (Bottom) | 15 mils (0.38 mm)
+GND Return | L2 (Plane) | Solid Plane (Unbroken)
+
+#### 3. Thermal Strategy: No Fans Needed
+
+At 1.0A RMS, the TMC2209 drivers generate very little heat compared to their 1.7A limit.
+- **Vias:** Keep the 4x4 grid of 0.3mm thermal vias under the TMC2209 center pad connecting to the L2 GND plane.
+- **Heatsinks:** You should still use the small "stick-on" aluminum heatsinks, but you no longer need forced-air cooling (fans) for the enclosure.
+
+#### 4. UART Addressing Logic (Same)
+Since you are using a single UART bus, the wiring remains:
+- **One TX/RX pair** from the MCU to all three drivers.
+- **MS1/MS2** hard-wired on the PCB to set Addresses 0, 1, and 2.
+- **Software Interlock:** In your code, write a function that prevents Pump3 from turning on if Pump1 and Pump2 are already active.
+
+#### 5. Revised "Zone" Map for 4-Layer PCB
+- **Zone 1 (Isolated):** EZO-pH/EC Islands. Keep these at the "far end" of the PCB.
+- **Zone 2 (Digital):** MCU, LiDAR, and EZO-RTD in the middle.
+- **Zone 3 (Power):** Solenoid MOSFET and 3x TMC2209s. Since you only run two at once, you can cluster the TMC2209s closer together to save board space.
+
+**Summary Checklist**
+
+Component | Revision
+----------|---------
+24V Trace | Reduce to 40 mils.
+Diode | Swap to 3A SMA Schottky.
+Fuse | Swap to 4A.
+Code | Add "Max 2 Active" logic and set rms_current(1000).
+Read Logic | Disable all 3 drivers (Enable Pin = HIGH) during pH/EC reading.
+
+------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---
 
 ### 10.2 Critical Routing
 1. Keep power traces wide (1mm min for logic, 2mm+ for pump circuits)
