@@ -30,17 +30,14 @@ ESP32-C6 based NFT hydroponics controller with full sensor suite, dosing pump co
 │         ┌─────────────┬────────────┬──────┴──────┐          │
 │         │             │            │             │          │
 │    ┌────┴────┐   ┌────┴────┐   ┌───┴───┐  ┌──────┴──────┐   │
-│    │  I2C    │   │  GPIO   │   │ UART  │  │    SPI      │   │
+│    │  I2C    │   │  GPIO   │   │ UART  │  │    RS-485   │   │
 │    │  Bus    │   │         │   │       │  │  (future)   │   │
 │    └────┬────┘   └────┬────┘   └───────┘  └─────────────┘   │
 │         │             │                                     │
-│    ┌────┴───────┐  ┌──┴───────┐                             │
-│    │ pH EZO     │  │Ultrasonic│                             │
-│    │ EC EZO     │  │ HC-SR04  │                             │
-│    │ RTD EZO    │  └──────────┘                             │
-│    │ BH1750     │                                           │
-│    │ BME280     │                                           │
-│    │ OLED       │                                           │
+│    ┌────┴───────┐  ┌──┴─────────────┐                       │
+│    │ pH EZO     │  │ LiDAR          │                       │
+│    │ EC EZO     │  │ Level switches │                       │
+│    │ RTD EZO    │  └────────────────┘                       │
 │    └────────────┘                                           │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -53,7 +50,7 @@ A 24V rail is used because it enables a broader selection of main circulation pu
 
 The controller operates independently when Home Assistant is unavailable:
 - Local pH control: Once daily at 10:00 AM (avoids temperature-induced pH fluctuations)
-- Doses pH Down only — pH creep is always upward; no pH Up pump fitted (see §10)
+- Doses pH Down only — pH creep is always upward; no pH Up pump fitted
 - Local EC control: Doses nutrients when EC drops below threshold (every 10 min)
 - Safety interlocks: Float switch protection always active
 - ATO: Requires HA for user confirmation (manual override via physical button possible)
@@ -63,55 +60,14 @@ The controller operates independently when Home Assistant is unavailable:
 ---
 
 
-### 1. Reservoir Selection
-
-**✅Selected: Black 200 L reservoir (minimum).** Larger is better.
-
-The hydroponic industry commonly uses plant count as the sizing basis:
-
-| Crop type | Rule | 200 L capacity | 300 L capacity |
-|-----------|------|----------------|----------------|
-| Leafy greens / herbs | 1 US gal (~3.8 L) per plant | ~53 plants | ~80 plants |
-| Fruiting crops (tomatoes, peppers) | 2+ US gal (~7.6 L) per plant | ~26 plants | ~40 plants |
-
-The rationale is that fruiting crops have higher and more variable water and nutrient uptake, so a larger buffer per plant is needed to prevent rapid EC and pH swings between dosing events. The minimum is a lower bound — more volume per plant always improves stability.
-
-200 L comfortably supports a medium-scale home NFT system at either crop type. For a mixed planting (e.g. herbs + one tomato row), use the fruiting-crop rule for the whole reservoir.
-
-For pH and nutrient stability, reservoir volume is the single most effective passive stabiliser:
-
-**pH stability**
-- Carbon dioxide exchange and plant root exudates drive continuous pH creep. A larger volume creeps more slowly, giving the controller more time between corrections.
-- At 200 L a 5 mL shot of 85% phosphoric acid moves pH by ~0.05–0.1 units; at 40 L the same dose moves it ~0.25–0.5 units. Larger volume → smaller overshoot risk → fewer correction cycles → less total acid consumed.
-
-**Nutrient (EC) stability**
-- Water evaporates; plants take up water and nutrients at different ratios. Both effects shift EC. In a larger reservoir these shifts accumulate more slowly, so the controller doses less frequently and EC stays within the target window for longer between events.
-- A single top-off event (adding plain water) causes a smaller EC dilution in 200 L than in 40 L, reducing the magnitude of the corrective nutrient dose that follows.
-
-**Thermal stability**
-- Nutrient uptake rates and EC calibration are temperature-dependent. A larger thermal mass buffers day/night and seasonal temperature swings, reducing measurement noise and the need for temperature-compensation corrections.
-
-**Practical trade-offs at 200 L**
-- Weight: 200 kg when full — floor loading and structural support must be considered.
-- Mixing: Position the return-pipe to create turbulence, to prevent stratification and ensure the sensors read a representative sample.
-- Refill logistics: larger volume means less frequent top-offs, but each top-off event requires a larger water volume. An ATO (§5) handles this automatically.
-
-**Light and contamination control**
-- Light proofing: the reservoir must be fully opaque. Any light penetration drives algae growth, which consumes nutrients, clogs the system, and destabilises pH. Black HDPE tanks or IBC totes with an opaque cover are preferred.
-- Lid: use a tight-fitting lid at all times. A lid reduces evaporation (slowing EC drift), blocks ambient light, and prevents dust, insects, and debris from entering the solution.
-- Cut-outs for plumbing and sensor cables should be kept as small as practical and sealed with foam or rubber grommets.
-
-
----
-
-### 2. Main Pump Selection
+### 1. Main Pump Selection
 
 Requirements:
 - 400-600 L/hr for NFT (Nutrient Film Technique)
 - 24V brushless motor for longlivity
 - 2.5m head
 
-#### Parts Considered
+#### 1.1. Parts Considered
 
 Feature        | ✅[SHYSKY/AUBIG DC40F-2470](https://www.amazon.com/SHYSKY-DC40F-2460-Brushless-Waterproof-Submersible/dp/B0C5721V85) | [Topsflo TL-B10](https://www.topsflo.com/brushless-dc-pump/tl-b10-brushless-dc-pump.html) |
 ---------------|--------------|---------------------|
@@ -132,121 +88,54 @@ Cost           | \$26         | \$30 on AliExpress  |
 ---
 
 
-### 3. Dosing Pump Selection
+### 2. Main Reservoir Selection
 
-Use a peristaltic pumps for their characteristics
-- Self-priming capability
-- Chemical resistance (no wetted metal parts)
-- No contamination between fluids
-- Self-sealing when stopped (rollers pinch tube; no drip-back)
+In a Nutrient Film Technique (NFT) system, the reservoir acts as nutrient bank for the entire closed-loop operation. Since we're are building a PID-controlled system, the reservoir’s most critical function is providing chemical and thermal buffering to ensure your sensors and pumps have a stable environment to work within. 
 
-#### 3.1. Technologies Considered
+#### 2.1. Functions of the Reservoir
 
-Feature    | Stepper Pump                    | DC Pump
------------|---------------------------------|--------------------------------
-Accuracy   | High (Calibration stays stable) | ❌Low (Drifts as motor/tube ages)
-Min dose   | ~0.05 ml                        | ~1.0 ml
-Control    | High (with Driver)              | Low (with MOSFET)
-Motor life | ~5,000 hours                    | 1,000 hrs max with brushed motor
-EMI noise  | ❌High                          | Moderate
-Cost       | \$90 - \$100                    | \$10 - \$120
+- **Chemical Buffering:**: A larger reservoir volume acts as a buffer against rapid pH and EC fluctuations. For the PID loop this is vital; a small reservoir would cause "jittery" sensor readings, making it difficult for your system to learn gain without overshooting.
+- **Thermal Stability:** Water has a high heat capacity, so the reservoir helps regulate the temperature of the nutrient solution. This protects roots from rapid temperature swings that could lead to stress or dissolved oxygen issues.
+- **Recirculation & Filtration Point:** It serves as the collection point where gravity returns the nutrient film from the channels. This is where you place filters to prevent debris from reaching your pumps and air stones to maintain high dissolved oxygen levels.
+- **Sensor Hub:** In an automated system, the reservoir is the ideal location for your pH and EC probes. It provides a "mixed" sample of the entire system's chemistry, ensuring your PID loop makes decisions based on the average state of the solution rather than localized channel data.
 
-A stepper motor is nice for its acurate dosing and reliability, but may create a PCB layout headache due to its EMI. On the other hand with a DC pump, we risk the pump "sticking" or drifting and crashing your pH is too high.   As there is no clear winner, we'll consider both types of motors.
+#### 2.2. Requirements
 
-Before we can explore specific dosing pumps, we need to know the required dosing.
+- **PID Stability:** A 100L+ volume provides enough chemical inertia so that a 1 mL dose from your stepper pump doesn't cause a massive pH spike. This makes your Integral (I) tuning much easier to stabilize. It acts as a Low-Pass Filter for your chemical concentrations.
+- **Evapotranspiration:** On a hot day, 50 mature plants can easily drink 10–15 liters. A 100L reservoir ensures we're not refilling every 24 hours.
+- **Drain-Back capacity:** In an NFT system, when the pump stops, the "film" in the channels drains back. You need roughly 15-20% extra headspace in the tank to catch this water without an overflow.
+- **Light proofing:** the reservoir must be fully opaque. Any light penetration drives algae growth, which consumes nutrients, clogs the system, and destabilises pH. Black HDPE tanks or IBC totes with an opaque cover are preferred.
+- **Tight fit:** use a tight-fitting lid at all times to reduces evaporation (slowing EC drift), blocks ambient light, and prevents insects, and debris from entering the solution. Keep cutouts for plumbing and sensor cables small as practical and sealed.
 
-#### 3.2. Per-Event Dose Estimates
+#### 2.3 Rule of Thumb
 
-Assumptions:
-- 2-part nutrients at 5–7 mL/L (standard hydroponic concentrate);
-- pH Down = 85% phosphoric acid at ~1–2 mL/10 L per pH unit correction;
-- tap water pH 7.0–7.5, target pH 5.8–6.2;
-- EC target 1.5–2.5 mS/cm. 
-- Keepking pH Down steps ≤5 mL to avoid overshoot on a large volume. Step window (minimum 60 s) includes pump-on time plus mix-and-settle time before the next sensor reading.
+The **Rule of Thumb** is that Leafy greens (lettuce, herbs, kale) typically require **1.5 to 2 liters (0.5 gallons) of buffering per plant**.  Fruiting crops (tomatoes, peppers) will need about twice that. The rationale is that fruiting crops have higher and more variable water and nutrient uptake, so a larger buffer per plant is needed to prevent rapid EC and pH swings between dosing events.
 
-The table below gives per-event dose estimates for a nominal **200 L reservoir**. Doses are applied incrementally: the controller pumps a small volume, waits for mixing, re-measures, and repeats as needed. Actual volumes scale with reservoir size and source-water chemistry.
+Type of crop | Buffering per plant | Buffering for 50 plants
+-----|-----------|--------------
+Leafy greens (lettuce, herbs, kale) | 2 L/plant | 100 L
+Fruiting crops (tomatoes, peppers)  | 4 L/plant | 200 L
 
-| Channel | Event | Dose per step | Steps to target | Total volume | Step window | Required flow rate (100% DC) |
-|---------|-------|--------------|-----------------|--------------|-------------|------------------------------|
-| Nutrients A | Initial fill | 50–100 mL | 10–20 | 500–1,400 mL | 60–120 s | 25–100 mL/min |
-| Nutrients B | Initial fill | 50–100 mL | 10–20 | 500–1,400 mL | 60–120 s | 25–100 mL/min |
-| Nutrients A | Maintenance | 10–50 mL | 2–5 | 20–250 mL | 60–120 s | 5–50 mL/min |
-| Nutrients B | Maintenance | 10–50 mL | 2–5 | 20–250 mL | 60–120 s | 5–50 mL/min |
-| pH Down | Initial fill | 3–5 mL | 6–12 | 18–60 mL | 60 s | 3–5 mL/min |
-| pH Down | Maintenance | 1–3 mL | 1–3 | 1–9 mL | 60 s | 1–3 mL/min |
+**✅Selected: 120L Black Reservoir**, with an operating level of 100 liters, so it leaves room for drain-back. 
 
-#### 3.3. Parts Considered
+Metric           | Recommendation
+-----------------|---------------
+Total Volume     | 120 Liters (Standard heavy-duty tote size)
+Operating Level  | 100 Liters (Leaves room for drain-back)
+Daily Water Loss | ~10% (10 Liters/day during peak growth)
+Mixing Ratio     | 100:1 (Ideal for 1mL/min to 100mL/min pump range)
 
-Peristaltic stepper dosers are often rated for a 50% duty cycle. This doubles the required instantaneous flow rate relative to continuous pumping over the full window.
+#### 2.4. Mixing Ratio
 
-Requirements
-- 24V DC motor
-- I2C or UART control
-- Continuous flow rate of ~5ml/min for pH down.
-- Continuous flow rate of ~50 mL/min for Nutrients.
+The **Mixing Ratio** refers to the relationship between the total reservoir volume and the maximum volume of a single dosing event. This ratio is the "sweet spot" for ensuring that your sensors can detect a change without the system becoming chemically unstable or "oscillating".
+- **High Ratio (e.g., 500:1):** Very stable, but slow to correct.
+- **Low Ratio (e.g., 20:1):** Very fast, but high risk of "jitter".
 
-Note that the **EZO-PMP is not a stepper-based**. The dependence on flow-rate calibration and the "Dose over Time" logic confirm it is a regulated DC motor using tachometer/time-based feedback rather than discrete steps. It achieves ±1% accuracy the same way a Kamoer NKP-DC-B08 would — via calibrated timed runs — not via step counting. 
-
-Feature       | [ANKO A200SX](https://ankoproducts.com/products/a200sx) | [Kamoer KAS-SE](https://www.kamoer.cn/us/product/detail.html?id=9005) | [Atlas EZO-PMP](https://atlas-scientific.com/peristaltic/ezo-pmp/)
---------------|------------------------|-----------------------|--------------
-Voltage       | 24V DC                 | 24V DC                | 12 – 24V DC
-Technology    | Stepper motor          | Stepper motor         | DC Motor
-Rated Current | 1.7A (RMS)             | 0.4 – 0.8A            | 0.1 – 0.25A
-Duty Cycle    | 50% (Industrial)       | Intermittent          | 100% (Continuous)
-Acid Tubing   | Norprene               | Bioprene              | Bioprene / Tygon
-Max Flow Rate | 450 mL/min             | ❌maybe 71.5 mL/min   | 105 mL/min
-Motor Life    | 5,000+ hr              | 1,000 – 2,000 hr      | ❌~1,000 hr
-Tubing Life   | ~1,000 hr              | ~1,000 hr             | 500 – 1,000 hr
-Driver        | Needs ext. driver      | Needs ext. driver     | Build-in
-Control       | I2C to ext. driver     | I2C to ext. driver    | Native I2C
-EMI noise     | ❌High: 1.7A switching | Moderate 0.8A switching | Low
-Price         | \$90 on ANKO Products  | \$95 on AliExpress    | \$120 on Atlas
-
-Again, no clear winner.  But if we're willing to accept some limitations on how we use the ANKO stepper pump, we can have the best of both worlds.  Acceptable EMI noise and current, and the accurateness and longlivity.
-
-**✅Selected: ANKO A200SX** but with the promise to implement Sequential Logic (turning off motors to read sensors) and limit the motor current as far as feasible (1A ?).  
-- *Overbuilt for Precision:* The NEMA 17 stepper (ANKO) has massive "holding torque." In dosing, this prevents the rollers from "back-creeping" when the pump is off, ensuring the pH Down doesn't slowly leak into the tank.
-- *Thermal Headroom:* By running at 60% of its rated current, active cooling isn't neede for the stepper driver.
-- *The "Silent Read" Advantage:* Since we'll not read pH/EC while pumping, we eliminate the biggest risk of the ANKO (chopper noise). The code simply disables the motor drivers (ENN = HIGH) before requesting data from the ADM3260 islands.
-
-Running the motor at 1A RMS (~60% of its 1.7A rating) will significantly reduce the electromagnetic field strength and current ripples that contribute to EMI. However, because torque in stepper motors is directly proportional to current, you should expect roughly **40-45% less torque** than the motor’s peak capability.
-
-Recommendations:
-- **Test under Load:** Verify that 1A provides enough torque to move the fluid through your specific tubing at your required pressure.
-- **Adjust Microstepping:** If the motor vibrates or stalls at 1A, increasing microstepping (e.g., to 1/8 or 1/16) can sometimes help smooth out the motion and prevent resonance-related stalls at lower current levels. 
-
-### 4. Dosing Pump Driver Selection
-
-Requirements:
-- 24V pump voltage
-- 3.3V I/O voltage
-- UART interface, ideally shared between drivers
-
-#### 4.1. Parts Considered
-
-Feature         | ✅[Trinamic TMC2209](https://www.analog.com/en/products/tmc2209.html) | [Trinamic TMC2225](https://www.analog.com/media/en/technical-documentation/data-sheets/TMC2225_datasheet_rev1.14.pdf)
-----------------|---------------------|------------------|
-Pump voltage    | 24V supported       | 24V supported    |
-I/O voltage     | 3.3V supported      | 3.3V supported   |
-Current         | 2.0A RMS max        | ❌1.4A RMS max   |
-UART            | Yes (shared)        | Yes (shared)     |
-Near-silent op  | StealthChop2        | StealthChop2     |
-Fault detection | StallGuard4         | unknown          |
-
-**✅Selected: Trinamic TMC2209** because the TMC2225 can't drive the 1.7A current needed for the ANKO A200SX pump.
-
-#### 4.2. Limit EMI Noise and Current
-
-To reduce EMI noise and current, choose a **target operating range of 60–70%** of the pumps rated **I<sub>RMS</sub>** .
-
-This current should be limited in hardware and firmware:
-1. Use the V<sub>REF</sub> input of the TMC2209 to set a hard limit to 90% of the 1.7 A<sub>RMS</sub> motor current. This is likely still overkill, but will limit the current further in firmware. 
-2. Set `IHOLD_IRUN` register using firmware to further lower the current to a practical level Configure `IHOLD=0` (zero standstill current) via UART, so sense resistors and motor carry no current between dosing events.
 
 ---
 
 
-### 5. Main Reservoir Level System
+### 3. Main Reservoir Level System
 
 Tight water level control is less about volume and more about chemical stability.
 - When **water evaporates**, it leaves behind minerals, salts, and nutrients. This can lead to osmotic shock, nutrient burn in plants. An Auto Top-Off (ATO) keeps the ratio of water-to-solids constant.
@@ -265,12 +154,11 @@ Purpose:
 - Independent sensors for **high and low alarms** provide a safety feature in case the ATO system fails. The high alarm disables the auto top-off feature.  The low alarm disables the main pump so it can't run dry.
 
 
-#### 5.1 Continuous Depth Sensor Selection
-
+#### 3.1 Continuous Depth Sensor Selection
 
 This sensors provide a real-time measurement of the liquid height, which is ideal for tracking consumption and guiding the auto top-off feature.
 
-##### 5.1.1. Technologies Considered
+##### Technologies Considered
 
 Feature  | LiDAR | Capacitive | Ultrasonic | Hydrostatic
 ---------|-------|------------|------------|------------
@@ -285,7 +173,7 @@ Approx. Price | \$25 – \$40 | \$35 – \$50 | \$10 – \$15 | ❌\$60 – \$80
 
 **✅Selected: LiDAR** since it stays dry, so no maintenance-free. The 10 cm head room is acceptable since it only needs to measure the level up to the high alarm float sensor. Capacitance and hydro static were rejected since mineral buildup eventually affects these sensors.  Ultrasonic is rejected, since it needs excessive head room.
 
-##### 5.1.2. Parts Considered
+##### Parts Considered
 
 Feature         | ST VL53L1X<sup>[1](https://www.adafruit.com/product/3967)</sup> | Benewake TF-Luna<sup>[2](https://www.robotshop.com/products/benewake-tf-luna-8m-lidar-distance-sensor)</sup> | Benewake TFmini-S<sup>[3](https://www.robotshop.com/products/benewake-tfmini-s-micro-lidar-module-i2c-12m)</sup>
 ----------------|------------------|------------------|------------------
@@ -299,8 +187,7 @@ Price           | $14.95           | $22.26           | ❌$48.10
 **✅Selected: Benewake TF-Luna** because if its housing and price.  Rejected the ST VL53L1X since it is an unhoused breakout board.  Rejected the Benewake TFmini-S because if its price.
 
 
-#### 5.2 High/Low Alarm Sensor Selection
-
+#### 3.2 High/Low Alarm Sensor Selection
 
 Goals:
 - A low level float switch keeps keep main pump from running dry.
@@ -311,21 +198,23 @@ Requirements
 - A normally closed switch is less likely to fail.
 - Horizontal side-mount, so the top of the reservoir can be opened for inspection. Also the sensing level is fixed by where you drill the hole — no float travel calculation, no ambiguity. 
 
-##### 5.2.1. Parts Considered
+##### Parts Considered
 
-Feature     | ✅Flowline LH25-1101
-------------|----------------------
-Contact     | SPST dry reed, selectable NO/NC by float orientation
-Material    | Polypropylene (PP) body and float
-Mount       | 1/2" NPT side-wall
-Accuracy    | ±5mm in water
-IP rating   | IP68
-Wire        | 2' (61cm), 2-conductor, 22 AWG
+Feature                 | ✅[Flowline LH25-1101](https://www.flowline.com/product/switch-tek-lv20-lh25-mini-float-level-switch/) | [XKC-Y25-NPN](https://naylampmechatronics.com/img/cms/000435/datasheet_XKC-Y25-V.pdf) | [Gravity Digital (SEN0204)](https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/2264/SEN0204_Web.pdf?_gl=1*o80fkp*_up*MQ..*_gs*MQ..&gclid=Cj0KCQiA2bTNBhDjARIsAK89wlGvFzQZ8EN3CTEC5fXqOzGy8XN0DKhcgYRHx7EEB3FesbBQHIjwfIsaAsi5EALw_wcB&gclsrc=aw.ds&gbraid=0AAAAADrbLljjxZwlpBSKDLTjGW_Nytu5Q)
+------------------------|--------------------------|--------------------------|--------------------------
+Technology              | Mechanical Float (Reed)  | Capacitive (Non-contact) | Capacitive (Non-contact)
+Material                | Polypropylene            | ABS Plastic              | ABS Plastic
+Mount                   | 1/2" NPT Hole            | External Adhesive        | External Adhesive
+Accuracy                | ±5mm                     | ±3mm                     | ±3mm
+IP-Rating               | IP68 (Submersible)       | IP67 (Water resistant)   | IP67 (Water resistant)
+Max Wall Thickness      | None                     | ~13mm                    | ~13mm
+Sensitivity to Splashes | Moderate                 | ❌High                   | ❌High
+Price                   | ~$40                     | ~$11                     | ~$13
 
-**✅Selected: Flowline LH25-1101 (Horizontal, PP)**. No alternatives were considered.
+**✅Selected: Flowline LH25-1101** is the "industrial" choice. Since the main reservoir is prone to splashing, a physical float is less likely to give a false positive from condensation on the tank walls. Use a stilling well (a simple piece of 2" PVC pipe with small holes at the bottom) to surround the float and keep the water surface calm
 
 
-### 5.3 Automatic Top-Off (ATO) Selection
+#### 3.3 Automatic Top-Off (ATO) Selection
 
 
 Requirements
@@ -334,7 +223,7 @@ Requirements
 - 0-0.8 MPa (0-116 PSI), the typical municipal water pressure
 - Brass body, EPDM/NBR seal, so it is food-safe and corrosion resistant
 
-#### 5.1.1 Parts Considered
+##### Parts Considered
 
 Feature | ✅[DIGITEN DC 24V 1/4" NC](https://www.amazon.com/DIGITEN-Solenoid-Reverse-Osmosis-System/dp/B00X6RAHMU) | [US Solid JFSV00068](https://ussolid.com/products/u-s-solid-electric-solenoid-valve-1-4-24v-dc-solenoid-valve-stainless-steel-body-normally-closed-viton-seal-html?_pos=6&_fid=d5a36750a&_ss=c) | [US Solid MSV00027](https://ussolid.com/products/u-s-solid-motorized-ball-valve-1-4-stainless-steel-electrical-ball-valve-with-full-port-9-24-v-ac-dc-2-wire-auto-return-html)
 ----------------|-------------------------|-------------------|--------------------
@@ -355,36 +244,215 @@ Cost            | \$10                    | \$30              | $25
 ---
 
 
-### 6. Dosing Reservoir Level Monitoring
+### 4. Dosing Pump Selection
 
-**Decision: Software volume tracking for v1. No hardware float sensors on dosing reservoirs.**
+In this NFT (Nutrient Film Technique) system, the dosing pumps act as the "precision injectors" of the system. Their primary function is to maintain a stable chemical environment.
 
-Rationale:
-- GPIO pins are fully exhausted (GPIO21–23 reserved only for future RS-485)
-- Adding hardware float sensors would require an I2C GPIO expander (e.g., PCF8574)
-- Dosing reservoirs are small (1–2 L) and refilled manually during routine maintenance
-- Pumps are peristaltic with a known flow rate (mL/s), so remaining volume can be
-  estimated by tracking cumulative dose volume in firmware
-- A low-volume warning can be triggered at, for example, 10% remaining (estimated)
+Use a peristaltic pumps for their characteristics
+- **Same volume per revolution** independent how much is left in the supply bottle. 
+- **Self-priming** capability
+- **Chemical resistance** (no wetted metal parts)
+- **Self-sealing** when stopped (rollers pinch tube; no drip-back)
 
-**Software tracking approach:**
-- At startup: user sets initial reservoir volume (or uses a default)
-- Firmware subtracts estimated dose volume after each pump activation
-- Home Assistant alerts when estimated remaining volume drops below threshold
-- User resets the counter after refilling (via HA switch entity)
+Unlike a standard water pump, a peristaltic pump is positive displacement. Whether the pH down or nutrient bottles are full or nearly empty, the pump delivers the exact same volume per revolution. This makes the "gain learning" of a  PID control algorithm much more accurate.
 
-**v2 hardware path (if desired):**
-- Add PCF8574 I2C GPIO expander (address 0x20–0x27, 8 GPIO pins)
-- Mount one horizontal NC float switch (e.g., LH25) in each reservoir at ~20% fill
-- Wire switches to PCF8574 inputs with pull-ups
-- PCF8574 is polled over shared I2C bus (address 0x24, requires one spare I2C address)
-- Cost: ~$2 for PCF8574 + ~$25 per float switch
+Requirements:
+1. **Micro-Dosing pH Down**: In this recirculating NFT system, the reservoir volume is small relative to the flow. To avoid "pH Yo-yoing," the pump must deliver tiny increments of acid.
+2. **Dynamic Nutrient Delivery**: When plants have "eaten" the nutrients, the EC (Electrical Conductivity) drops. The pump needs to ramp up speed to restore concentration quickly. 
+
+#### 4.1. Requirements
+
+Before we can explore dosing pumps, we need to know the required dosing.
+
+In an active NFT or DWC system, pH creeps upward between doses due to two mechanisms:
+
+1. **Plant nutrient uptake**: roots preferentially absorb nitrate (NO₃⁻) and release bicarbonate (HCO₃⁻) in exchange, alkalising the solution over hours.
+2. **CO₂ offgassing**: carbonic acid (H₂CO₃) from dissolved CO₂ escapes the reservoir, removing a natural acid buffer and allowing pH to rise.
+
+This upward drift is the dominant long-term trend in a healthy system.
+
+##### Initial Makeup
+
+Filling the reservoir with municipal water.
+
+Assumptions:
+- Reservoir size: 100L
+- Municipal tap water at pH 7.0 to 8.5
+- Nutrient: AmHydro Lettuce Nutrients, dosed at 4.0 mL/L per nutriant.
+- Nutrients at pH 2.0 - 4.0
+- pH Up Concentration: 25–30% Potassium Hydroxide.
+- pH Down Concentration: 10% Phosphoric Acid.
+
+**AmHydro Lettuce Nutrients** need to be mixed at 4 mL/L of water. For a 100 liter reservoir this requires 100 L × 4 mL/L = **400 mL of each nutrient**.
+
+Concentrated nutrients are formulated to be highly acidic (pH 2.0–4.0) to keep minerals soluble. Adding 800 mL of nutrient concentrate to a 100L reservoir is a massive chemical event. The sheer volume of acid in the concentrate will likely overwhelm even the strongest hard water buffer, leading to a severe pH "crash.
+
+Force            | Action                  | pH in soft water  | pH in hard water
+-----------------|-------------------------|-------------------|--------------
+Municipal water  | Fill with 100L          | 7.5               | 7.5
+Nutrients added  | 400 mL of each nutrient | drop by 2.4       | drop by 1.6
+**Total**        |                         | 5.1               | 5.9
+
+For **soft water**, it will need **~1 - 8 mL of Ph Up**.  For hard water, it might just be in range.
+
+##### Daily Makeup
+
+**50 mature plants** consume 10 liters of water and their daily ration of nutrients, causing the pH to drift UP due to biological activity. A 10-liter top-off and nutrient recharge will then pull the pH back DOWN.
+
+To maintain the mixing ratio of the nutrients, 10 L × 4 mL/L = **40 mL of each nutrient** needs to be added. 
+
+Force            | Action                  | pH in soft water  | pH in hard water
+-----------------|-------------------------|-------------------|--------------
+Biological drift | 50 Plants "Eating"      | +0.4 to +0.6      | +0.1 to +0.2
+Municipal Water  | 10L baseline refill     | +0.15             | +0.45
+Nutrients added  | 40 mL of each nutrient  | -0.6              | -0.2
+**Total**        |                         | ~**+0.1**         | ~**+0.4**
+
+To bring the pH back down to 5.9 points:
+- For **soft water**, add **0.2 mL** to **0.5 mL pH Down**
+- For **hard water**, add **8 mL** to **20 mL pH Down**
+
+##### Conclusion for a Dosing Pump
+
+- **Precision** is essential. It needs to be able to deliver 0.1 mL pulses since a 100L reservoir of soft water may only need ~0.2 mL of acid to move the pH by 0.1.
+- **Dynamic Range** should be able to handle **100 mL/min** for the initial "bulk" dosing and **1 mL/min** for fine-tuning without stalling.
+- **No pH Up pump**, because besides balancing the pH after an initial fill with soft water, the pH reliably creeps upward.  A pH Up pump would fire only if pH somehow fell below target — an unusual condition that indicates a problem that needs manual investigation, not an automated correction.
+
+
+#### 4.2. Technologies Considered
+
+The table below includes EMI (Electromagnetic Interference), because the pH and EC probes are essentially high-impedance antennas. If the motor creates significant electrical noise, it can cause the sensor readings to "jitter", but also affect delicate digital parts of the system.
+
+Feature           | Brushed DC    | ✅Stepper       | Brushless DC
+------------------|---------------|-----------------|-------------
+Flow Control      | ❌Inaccurate  | Highly Precise | Needs Encoder
+Min. Dose         | mL range      | µL range       | mL range
+EMI Noise         | High (Brush arcing) | Moderate (PWM) | Moderate
+Lifespan          |❌ ~1 yr       | ~5 yr          | ~12 yr
+Layout Difficulty | Low           | Moderate       | High
+Price             | \$10 – \$60   | \$60 – \$170   | ❌\$150 – \$400+
+
+A note about PCB Layout challenges:
+- **Brushed DC:** While it has the worst noise, the layout is simple. The noise comes from the motor, and can be mitigated using by placing a large decoupling capacitors as close to the motor terminals as possible.
+- **Stepper:** The challenge here is the high-speed switching frequency of the PWM by the driver. Requires a solid ground plane and keeping high-current motor traces short and physically isolated from the analog front-end.
+- **Brushless DC:** requires a 3-phase inverter layout. Any slight imbalance in trace length or impedance can lead to timing issues and significantly higher EMI. Requires you to manage signal integrity and thermal dissipation simultaneously, making it the most complex board to design.
+
+**✅Selected: Stepper Motor**. The Brushed DC is far to inaccurate.  The Brushed DC is very expensive. The Stepper appears to be the golden middle route.
+
+
+#### 4.3. Parts Considered
+
+Part selection for a 1–100 mL/min dosing pump in a hydroponic PID loop requires balancing mechanical torque with electrical noise isolation to protect the sensitive pH/EC sensors.
+
+Requirements
+- 24V DC motor
+- I2C or UART control
+- Continuous flow rate of ~5ml/min for pH down.
+- Continuous flow rate of ~50 mL/min for Nutrients.
+
+Feature       | [ANKO A200SX](https://ankoproducts.com/products/a200sx) | [Kamoer KAS-SE](https://www.kamoer.cn/us/product/detail.html?id=9005)
+--------------|------------------------|-----------------------
+Voltage           | 24V DC                 | 24V DC                
+Technology        | Stepper motor          | Stepper motor         
+Rated Current     | 1.7A (RMS)             | 0.4 – 0.8A            
+Duty Cycle        | 50% (Industrial)       | Intermittent          
+Acid Tubing       | Norprene               | Bioprene              
+Max Flow Rate[^1] | 450 mL/min             | ❌maybe 71.5 mL/min   
+Motor Life        | 5,000+ hr              | 1,000 – 2,000 hr      
+Tubing Life       | ~1,000 hr              | ~1,000 hr             
+Driver            | Needs ext. driver      | Needs ext. driver     
+Control           | I2C to ext. driver     | I2C to ext. driver    
+EMI noise         | ❌High: 1.7A switching | Moderate 0.8A switching
+Price             | \$90 on ANKO Products  | \$95 on AliExpress    
+
+[^1]: Maximum flow rate depends on the tubing installed.
+
+Note that the **EZO-PMP is not a stepper-based**. The dependence on flow-rate calibration and the "Dose over Time" logic confirm it is a regulated DC motor using tachometer/time-based feedback rather than discrete steps. It achieves ±1% accuracy the same way a Kamoer NKP-DC-B08 would — via calibrated timed runs — not via step counting. 
+
+Again, no clear winner.  But if we're willing to accept some limitations on how we use the ANKO stepper pump, we can have the best of both worlds.  Acceptable EMI noise and current, and the accurateness and longlivity.
+
+Running the motor at 1A RMS (~60% of its 1.7A rating) will significantly reduce the electromagnetic field strength and current ripples that contribute to EMI. This will also reduce torque, but **40-45% less torque** will still meet the requirements.
+
+**✅Selected: ANKO A200SX** but with the promise to implement Slient Read  (turning off motors to read sensors) and limit the motor current as far as feasible (1A ?).  Since we'll not read pH/EC while pumping, we eliminate the biggest risk of the ANKO (chopper noise). The code simply disables the motor drivers (ENN = HIGH) before requesting data from the ADM3260 islands.
+
+
+---
+
+
+### 5. Dosing Reservoir Level Monitoring
+
+Monitoring the dosing reservoir (the small bottles of concentrated Nutrients and pH Down) is just as critical as monitoring your main 100L tank. In a "learning" PID system, an empty dosing bottle is a "silent killer" of your logic.
+
+50 mature plants are "hungry." We’ll be using ~70 mL of each concentrate daily.
+- A 1L bottle will last about 4 weeks.
+- Without a level sensor, you have to manually check the bottles. A simple Non-contact Liquid Level Sensor on the outside of the dosing bottle can trigger an "Add Nutrients" alert to your phone before the system crashes.
+
+For monitoring dosing reservoirs in a hydroponic system, the XKC-Y25 series is the most highly recommended non-contact liquid level sensor. These sensors use capacitive sensing technology to detect the presence of liquid through non-metallic container walls, such as plastic or glass, without direct contact.
 
 
 
+#### 5.1. Technologies Considered
+
+Feature          | Level Sensor       | ✅Firmware Tracking
+-----------------|--------------------|------------------
+User Interaction | Not required       | Tells the volume filled
+Accuracy         | ±5mm               | Probably similar [^2]
+Price            | ❌\$50 each        | \$0
+
+[^2]: Peristaltic pumps have a known flow rate (mL/s), so remaining volume can be estimated by tracking cumulative dose volume in firmware. 
+
+**✅Selected: Firmware Tracking**.  The accuracy is expected to by sufficient, and refilling only needs to be done occationally.
 
 
+---
 
+
+### 6. Dosing Pump Driver Selection
+
+Requirements:
+- 24V pump voltage
+- 3.3V I/O voltage
+- UART interface, ideally shared between drivers
+
+#### 6.1. Parts Considered
+
+Feature         | ✅[Trinamic TMC2209](https://www.analog.com/en/products/tmc2209.html) | [Trinamic TMC2225](https://www.analog.com/media/en/technical-documentation/data-sheets/TMC2225_datasheet_rev1.14.pdf)
+----------------|---------------------|------------------|
+Pump voltage    | 24V supported       | 24V supported    |
+I/O voltage     | 3.3V supported      | 3.3V supported   |
+Current         | 2.0A RMS max        | ❌1.4A RMS max   |
+UART            | Yes (shared)        | Yes (shared)     |
+Near-silent op  | StealthChop2        | StealthChop2     |
+Fault detection | StallGuard4         | unknown          |
+
+**✅Selected: Trinamic TMC2209** because the TMC2225 can't drive the 1.7A current needed for the ANKO A200SX pump.
+
+To reduce **EMI noise and current**, choose a **target operating range of 60–70%** of the pumps rated **I<sub>RMS</sub>** .
+
+This current should be limited in hardware and firmware:
+1. Use the V<sub>REF</sub> input of the TMC2209 to set a hard limit to 90% of the 1.7 A<sub>RMS</sub> motor current. This is likely still overkill, but will limit the current further in firmware. 
+2. Set `IHOLD_IRUN` register using firmware to further lower the current to a practical level Configure `IHOLD=0` (zero standstill current) via UART, so sense resistors and motor carry no current between dosing events.
+
+#### 6.2. Nutrient A and B Channels
+
+Two-part nutrients (Part A: calcium/iron; Part B: phosphate/sulphate) are kept separate in concentrate to prevent precipitation, but are always dosed at a 1:1 ratio in normal operation — same STEP pulse count, at the same time.
+
+Combining both pump motors on a single TMC2209 was considered and rejected:
+
+| Factor                   | Combined                  | ✅Separate
+|--------------------------|---------------------------|-----------
+| STEP GPIO cost           | 1 GPIO pin                | 2 GPIO pins
+| DIR GPIO cost            | n/a                       | n/a — DIR hardwired to 3.3V on all drivers
+| BOM cost                 | Save ~$5 (on TMC2209)     | Keep as-is
+| Ratio flexibility        | Locked 1:1                | Any ratio in firmware
+| Tubing wear compensation | Not possible per-pump     | Recalibrate each pump independently
+| Fault isolation          | One failure disables both | Identify which pump failed
+
+**✅Selected: Nutrition pumps have a dedicated driver.**
+
+**Rationale:** with stepper pumps the primary calibration concern shifts from flow-rate drift (eliminated by step counting) to tubing bore wear. Bore wear affects pump A and B at different rates depending on chemical exposure. Separate STEP channels allow independent step-count adjustment per pump without mechanical changes. The cost delta is one TMC2209 and glue (~$5). DIR is hardwired to 3.3V on all drivers — peristaltic pumps are self-sealing and never need direction reversal.
+
+**Future field change:** if combining is ever desired, tie the two coil outputs in parallel externally and leave one TMC2209 unpopulated (DNP). No PCB revision required.
 
 
 ---
@@ -407,7 +475,7 @@ Requirements:
 
 #### 7.1. Parts Considered
 
-##### 7.1.1. pH Probes
+##### pH Probe
 
 Feature     | Atlas Scientific ENV-40-pH (gen3) | DFRobot pH Sensor Kit (v2) | ✅BlueLab PROBPH
 ------------|-------------------------------|--------------------|------------------------
@@ -425,7 +493,7 @@ A double junction, adds an extra physical barrier that prevents nutrient salts a
 
 **✅Selected: BlueLab PROBPH** because no glass bulb like the Atlas, and doesn't require frequent cleaning and re-calibration. The DFRobot is engineerd for a different level of "continuous" use according to user report and needs a external ADC, as the ESP32’s native ADC is often non-linear. Note that while Bluelab states an average lifespan of 18 months for their pH probes. Many users report having to replace them more frequently in 24/7 submerged environments. 
 
-##### 7.1.2. EC Probes
+##### EC Probe
 
 The nutrient range typical in hydroponics is 0.8 – 2.5 mS/cm.
 
@@ -443,7 +511,7 @@ Price       | ❌\$140 + \$68 for EZO-EC | \$70 + external ADC | $72 + \$68 for 
 
 **✅Selected: BlueLab PROBPCEC** because is cheaper and easier to clean compared to the Atlas that uses a "sensing cavity design" that is hard to scrub.
 
-##### 7.2.3. Temperature Probes
+##### Temperature Probe
 
 The Bluelab Temperature Probe was included because it is the industry standard for durability in commercial hydroponic reservoirs. While the Atlas Scientific PT-1000 is more accurate for laboratory use, the Bluelab probe is favored by professional growers because its housing is specifically engineered to withstand "24/7" immersion in harsh, mineral-heavy nutrient solutions without drifting or corroding.
 
@@ -462,7 +530,7 @@ Price       | \$24 + \$36 for EZO-RTD  | \$59 + external ADC  | \$60 + external 
 
 **✅Selected: Atlas Scientific PT-1000** because it has a long lifespan and supports a I2C interface when combined with the Atlas EZO-RTD.
 
-### 7.3. Probe Isolation Strategy
+### 8. Probe Isolation Strategy
 
 In a mineral-heavy reservoir, the "hidden" enemy is **ground loops** causing probe interference. Since water is conductive, multiple probes (pH, EC) in the same tank act like batteries, leaking small currents that distort each other's readings.
 
@@ -470,7 +538,7 @@ Note that the EZO-RTD does not require isolation; temperature measurements are r
 
 To prevent this, one can use the professional Isolated I2C approach or a Time Division Multiplexing (TDM) hack.
 
-#### Technologies considered
+#### 8.1. Technologies considered
 
 Feature      | ✅Isolated I2C (EZO Style)     | TDM / MOSFET Switching
 -------------|--------------------------------|-----------------------
@@ -483,147 +551,65 @@ Cost         | ~$40–$60 for all channels      | ~$15 for all channels
 
 **✅Selected: Isolated I2C**, because chemical probes (especially pH) require a constant charge to remain stable. Turning them off/on frequently causes "reading drift" and significantly slows down your data refresh rate.
 
-#### Parts considered
+#### 8.2. Parts considered
 
 The Atlas Scientific ISO-I2C Brand Isolator primarily uses the ADM3260 chip from Analog Devices. Older or USB versions of their isolated carrier boards previously utilized a Silicon Labs SI8600 bidirectional I2C isolator and an RFM-0505 or Mornsun B0505S isolated DC-DC converter. 
 
-Feature    | ADM3260          | Atlas ISO-I2C Board | uFire / DFRobot Isolators
+Feature    | ✅ADM3260        | Atlas ISO-I2C Board | uFire / DFRobot Isolators
 -----------|------------------|---------------------|--------------------------
 Footprint  | IC and glue      | Mezzanine board     | Mezzanine board
 Difficulty | Layout sensitive | Plug & play         | Plug & play
-Price      | \$5              | \$32                | \$20
+Price      | \$5 per channel  | ❌\$32 per channel    | \$20 per channel
 
-Prices are per channel
-
-
+**✅Selected: ADM3260**
 
 ---
 
 
-### 4. Microcontroller Selection
+### 9. Microcontroller Selection
 
 To manage the hydroponic system with high-precision probes and dosing pumps, your microcontroller needs to handle multiple communication protocols simultaneously while maintaining timing for dosing.
 
-Requirements:
-1. Communication Protocols
+#### 9.1. Requirements
+
+1. **Communication Protocols**
    - I2C Bus: Required for Atlas Scientific EZO circuits (pH, EC, Temp).
    - UART: Required for TMC2209/TMC2225 drivers.
-   - GPIO: You need 1 step pin per pump, 2 for water level sensors, 2 for float switches.
+   - GPIO: Need 1 step pin per dpsing pump, 2 for water level sensors, 2 for float switches.
 
-2. Processing and Memory
+2. **Processing and Memory**
    - Dual-Core Architecture: The ESP32 is ideal because you can run the Dosing Logic/Stepper timing on Core 1 and the Wi-Fi/Data Logging/Web Server on Core 0. This prevents "jitter" in the stepper motors when the device sends data to the cloud.
    - Non-Volatile Memory: Essential for storing calibration data for your pH/EC probes and your "steps-per-ml" pump values so they aren't lost during power outages.
-3. Power and Logic Levels
+
+3. **Power and Logic Levels**
    - 3.3V Logic: The ESP32 operates at 3.3V.
    - ADC Resolution: If you bypass Atlas Scientific and use analog sensors, you need a 12-bit or 16-bit ADC. The ESP32's internal ADC is 12-bit but notoriously non-linear; an external ADS1115 (16-bit) is highly recommended for stable analog readings.
-4. Connectivity Requirements
+
+4. **Connectivity Requirements**
    - WiFi: Enables push alerts to a dashboard (like Home Assistant, Blynk, or Grafana) via MQTT or HTTP.
    - Matter/Thread: be ready for the future of home automation.
 
+#### 9.2. Parts Considered
+
+Feature | [ESP32-C6-WROOM-1-N8](https://documentation.espressif.com/esp32-c6-wroom-1_wroom-1u_datasheet_en.pdf) | ✅[ESP32-C6-DevKitC-1-N8](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32c6/esp32-c6-devkitc-1/index.html)
+----------------|-------------------|----------------------
+Core SoC        | ESP32-C6 (RISC-V @ 160MHz) | ESP32-C6 (RISC-V @ 160MHz)
+Form Factor     | Surface Mount              | Pin Headers
+USB Interface   | ❌None                     | Dual USB-C (UART & Native USB)
+Power Input     | 3.0V – 3.6V                | 5V (USB) or 3.3V/5V (Pins)
+Onboard I/O     | 28 GPIOs                   | 20 GPIOs
+Flash Memory    | 8MB                        | 8MB
+Antenna         | ❌Requires trace antenna   | On-board
+Voltage Control | External LDO required      | Built-in 3.3V Regulator
+Price           | \$9                        | \$11
+
 The ESP32 (WROOM or WROVER modules) is the industry standard for this scale.
 
-**Selected: ESP32-C6-DevKitC-1-N8**
-- Development board with USB-C, RGB-LED, buttons, and antenna.
-- Mounts to carrier PCB via pin headers.
-- 8MB flash memory.
-- Cost: \$9
+**✅Selected: ESP32-C6-DevKitC-1-N8**, the integrated USB-C port, PCB antenna and RGB LED simplify the PCB design. Well worth the price difference.
 
-**Alternatives considered — ESP32-C6-WROOM-1**
-- Bare module, requires antenna trace design and USB circuit
-- Cost: \$6 plus the cost of USB-C port, RGB-LED and buttons.
 
-*Not selected because:* The integrated USB-C port, PCB antenna and RGB LED simplify the PCB design. Not worth the marginal difference in cost.
+---
 
-### 9. Nutrient A and B on Separate TMC2209 Channels
-
-**Decision: STEP_NUT_A and STEP_NUT_B each have a dedicated TMC2209 driver.**
-
-Two-part nutrients (Part A: calcium/iron; Part B: phosphate/sulphate) are kept separate in concentrate to prevent precipitation, but are always dosed at a 1:1 ratio in normal operation — same STEP pulse count, at the same time.
-
-Combining both pump motors on a single TMC2209 was considered and rejected:
-
-| Factor | Combined | Separate (chosen) |
-|--------|----------|-------------------|
-| STEP GPIO cost | Saves 1 pin (GPIO19 free) | Uses GPIO15 + GPIO19 |
-| DIR GPIO cost | n/a | n/a — DIR hardwired to 3.3V on all drivers |
-| BOM cost | Save ~$3 (1× TMC2209) | Keep as-is |
-| Ratio flexibility | Locked 1:1 | Any ratio in firmware |
-| Tubing wear compensation | Not possible per-pump | Recalibrate each pump independently |
-| Fault isolation | One failure disables both | Identify which pump failed |
-
-**Rationale:** with stepper pumps the primary calibration concern shifts from flow-rate drift (eliminated by step counting) to tubing bore wear. Bore wear affects pump A and B at different rates depending on chemical exposure. Separate STEP channels allow independent step-count adjustment per pump without mechanical changes. The cost delta is one TMC2209 (~$3). DIR is hardwired to 3.3V on all drivers — peristaltic pumps are self-sealing and never need direction reversal.
-
-**Future field change:** if combining is ever desired, tie the two coil outputs in parallel externally and leave one TMC2209 unpopulated (DNP). No PCB revision required.
-
-### 10. pH Chemistry and Dosing Sequence
-
-#### Why pH always drifts upward
-
-In an active NFT or DWC system, pH creeps upward between doses due to two mechanisms:
-
-1. **Plant nutrient uptake**: roots preferentially absorb nitrate (NO₃⁻) and release bicarbonate (HCO₃⁻) in exchange, alkalising the solution over hours.
-2. **CO₂ offgassing**: carbonic acid (H₂CO₃) from dissolved CO₂ escapes the reservoir, removing a natural acid buffer and allowing pH to rise.
-
-This upward drift is the dominant long-term trend in a healthy system.
-
-#### Why there is no PUMP_PH_UP
-
-Because pH reliably creeps upward, the system only ever needs to dose *down*.
-A pH Up pump would fire only if pH somehow fell below target — an unusual condition that indicates a problem (wrong nutrient formula, excessive CO₂ injection, contamination) rather than normal operation. **PUMP_PH_UP has been omitted from the design.**  Only PUMP_PH_DN (GPIO11 STEP, TMC2209 U5) is fitted.
-
-If pH falls unexpectedly low, the correct response is manual investigation, not
-automated correction with an unmonitored acid reserve.
-
-#### How nutrient dosing interacts with pH
-
-Nutrient concentrates (especially Part B: phosphate and sulphate salts) are acidic.
-Adding nutrients causes a transient pH *drop* of ~0.1–0.3 units per typical dose,
-after which pH recovers and resumes its upward creep.
-
-This has two implications for the control loop:
-
-1. **Sequence matters**: EC correction must complete and the reservoir must mix before pH correction fires. Correcting pH immediately after an EC dose would be chasing a transient reading, not the steady-state pH.
-2. **Nutrients reduce pH correction demand**: after a large EC dose, pH Down may not be required at all for that cycle.
-
-#### Required firmware dosing sequence
-
-```
-1. Measure EC
-2. If EC < target → dose PUMP_NUT_A + PUMP_NUT_B simultaneously
-3. Wait for mixing (circulation pump running, e.g. 5–10 min)
-4. Re-measure pH
-5. If pH > target → dose PUMP_PH_DN
-6. Wait for mixing (e.g. 2–5 min)
-7. Re-measure pH — repeat step 5 if still high (avoid overdosing)
-8. Log readings
-```
-
-Never run EC and pH corrections in the same step. Always re-measure after mixing.
-
-## Pin Assignment
-
-| GPIO | Signal | Direction | Notes |
-|------|--------|-----------|-------|
-| 0 | FLOAT_LOW | Input | Flow float switch |
-| 1 | FLOAT_HIGH | Input | High-level float switch |
-| 2 | ATO_VALVE | Output | ATO solenoid valve via MOSFET Q8; R30 (4.7kΩ) DNP |
-| 3 | US_ECHO | Input | Ultrasonic sensor echo |
-| 4 | I2C_SDA | Bidirectional | I2C bus (4.7kΩ pullup) |
-| 5 | I2C_SCL | Output | I2C bus (4.7kΩ pullup) |
-| 6 | EZO_PDIS | Output | ADM3260 isoPower disable — active HIGH; shared by U3 (pH) & U4 (EC) |
-| 7 | US_TRIG | Output | Ultrasonic sensor trigger |
-| 8 | (RGB LED) | — | DevKit on-board RGB LED — do not use |
-| 9 | (available) | — | Strapping pin — internal 45kΩ pullup; leave undriven at boot |
-| 10 | PUMP_MAIN | Output | Main circulation pump via MOSFET Q1 (IRLR2905) |
-| 11 | STEP_PH_DN | Output | TMC2209 STEP for pH Down driver |
-| 15 | STEP_NUT_A | Output | TMC2209 STEP for Nutrient A driver; strapping pin — 10kΩ pulldown holds STEP LOW at boot |
-| 17 | (CP2102 TX) | — | Reserved — CP2102N UART TX on DevKit |
-| 18 | (available) | — | Free GPIO |
-| 19 | STEP_NUT_B | Output | TMC2209 STEP for Nutrient B driver |
-| 20 | (available) | — | Free GPIO — EN tied to GND on all TMC2209 drivers (IHOLD=0 handles standstill) |
-| 21 | TMC2209_UART_RX | Input | TMC2209 UART bus RX (ESP32-C6 UART1); direct connection to bus node |
-| 22 | TMC2209_UART_TX | Output | TMC2209 UART bus TX (ESP32-C6 UART1); 1kΩ series to bus node (per TMC2209 datasheet §4.3) |
-| 23 | (available) | — | Free GPIO |
 
 ## Power Architecture
 
@@ -635,12 +621,9 @@ Recommended Power Supplies:
 ```
 
 
-**Mean Well LRS-150-24** (24V / 6.5A / 150W, enclosed metal, convection cooled) —
+**✅Selected: Mean Well LRS-150-24** (24V / 6.5A / 150W, enclosed metal, convection cooled) —
 recommended for comfortable headroom. **Minimum: LRS-100-24** (24V / 4.2A / 100W) if cost is a priority.
 
-Peak 24V load estimate: TMC2209 supply current is chopper-averaged, not equal to motor coil current. Operating at 80% of rated (1.36A) with ~3Ω NEMA 17 coil resistance:
-1.36² × 3Ω × 2 coils = 11.1W per motor; at ~82% driver efficiency → 11.1W / 0.82 / 24V ≈ 0.56A from 24V rail per motor. At 90% (1.53A) → 0.71A per motor.
-Main pump (~0.75A) + 3× A200SX dosing (~0.56A each at 80%, worst-case all stepping) + ATO (~0.3A) + logic (~0.1A) ≈ 2.8A. Per §10 sequence, nutrients and pH Down never step simultaneously; normal worst-case is ~2.0A. LRS-100-24 (4.2A) is adequate; LRS-150-24 (6.5A) gives comfortable headroom and is recommended.
 
 **IP67 alternative:** LPV-100-24 (24V / 4.2A / 100W) for humid environments.
 Avoid HDR-60-24 — only 2.5A (insufficient).
